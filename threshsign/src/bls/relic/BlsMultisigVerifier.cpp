@@ -119,8 +119,7 @@ bool BlsMultisigVerifier::verify(const char *msg, int msgLen,
 /************** Serialization **************/
 
 void BlsMultisigVerifier::serialize(UniquePtrToChar &outBuf,
-                                    int64_t &outBufSize)
-const {
+                                    int64_t &outBufSize) const {
   ofstream outStream(className_.c_str(), ofstream::binary | ofstream::trunc);
   // Serialize the base class
   BlsThresholdVerifier::serialize(outStream);
