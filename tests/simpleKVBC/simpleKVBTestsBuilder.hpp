@@ -56,7 +56,7 @@ struct SimpleBlock {
   static void free(SimpleBlock* buf) { delete[] buf; }
 };
 
-enum RequestType : char { NONE = 0, READ = 1, COND_WRITE = 2, GET_LAST_BLOCK = 3, GET_BLOCK_DATA = 4 };
+enum RequestType : char { NONE = 0, READ = 1, COND_WRITE = 2, GET_LAST_BLOCK = 3, GET_BLOCK_DATA = 4, PRE_PROCESS = 5 };
 
 struct SimpleRequest {
   RequestType type = {NONE};
@@ -291,7 +291,7 @@ class TestsBuilder {
 
  private:
   void create(size_t numOfRequests, size_t seed);
-  void createAndInsertRandomConditionalWrite();
+  void createAndInsertRandomConditionalWrite(bool preProcess);
   void createAndInsertRandomRead();
   void createAndInsertGetLastBlock();
   void addExpectedWriteReply(bool foundConflict);

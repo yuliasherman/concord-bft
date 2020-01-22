@@ -127,15 +127,18 @@ void TestsBuilder::createRandomTest(size_t numOfRequests, size_t seed) {
 void TestsBuilder::create(size_t numOfRequests, size_t seed) {
   srand(seed);
   for (size_t i = 0; i < numOfRequests; i++) {
-    int percent = rand() % 100 + 1;
-    if (percent <= 50)
-      createAndInsertRandomRead();
-    else if (percent <= 95)
-      createAndInsertRandomConditionalWrite();
-    else if (percent <= 100)
-      createAndInsertGetLastBlock();
-    else
-      assert(0);
+    // int percent = rand() % 100 + 1;
+    // if (percent <= 50)
+    //  createAndInsertRandomRead();
+    // else if (percent <= 95)
+
+    // createAndInsertRandomConditionalWrite(true);
+    createAndInsertRandomConditionalWrite(false);
+
+    // else if (percent <= 100)
+    //  createAndInsertGetLastBlock();
+    // else
+    //  assert(0);
   }
 
   for (__attribute__((unused)) auto elem : internalBlockchain_) {
@@ -195,7 +198,7 @@ void TestsBuilder::addNewBlock(size_t numOfWrites, SimpleKV *writesKVArray) {
   internalBlockchain_[lastBlockId_] = newBlock;
 }
 
-void TestsBuilder::createAndInsertRandomConditionalWrite() {
+void TestsBuilder::createAndInsertRandomConditionalWrite(bool preProcess) {
   // Create request
   BlockId readVersion = lastBlockId_;
   if (lastBlockId_ > prevLastBlockId_ + CONFLICT_DISTANCE) {
@@ -207,12 +210,20 @@ void TestsBuilder::createAndInsertRandomConditionalWrite() {
   size_t numOfKeysInReadSet = (rand() % MAX_READ_SET_SIZE_IN_REQ);
 
   auto *request = SimpleCondWriteRequest::alloc(numOfKeysInReadSet, numOfWrites);
-  request->header.type = COND_WRITE;
+  if (preProcess)
+    request->header.type = PRE_PROCESS;
+  else
+    request->header.type = COND_WRITE;
+
   request->readVersion = readVersion;
   request->numOfKeysInReadSet = numOfKeysInReadSet;
   request->numOfWrites = numOfWrites;
   SimpleKey *readKeysArray = request->readSetArray();
   SimpleKV *writesKVArray = request->keyValueArray();
+
+  LOG_DEBUG(logger_,
+            "type=" << request->header.type << ", readVersion=" << readVersion
+                    << ", numOfKeysInReadSet=" << numOfKeysInReadSet << ", numOfWrites=" << numOfWrites);
 
   for (size_t i = 0; i < numOfKeysInReadSet; i++) {
     size_t key = 0;
@@ -318,6 +329,7 @@ void TestsBuilder::createAndInsertGetLastBlock() {
 size_t TestsBuilder::sizeOfRequest(SimpleRequest *request) {
   switch (request->type) {
     case COND_WRITE:
+    case PRE_PROCESS:
       return ((SimpleCondWriteRequest *)request)->getSize();
     case READ:
       return ((SimpleReadRequest *)request)->getSize();
@@ -332,6 +344,7 @@ size_t TestsBuilder::sizeOfRequest(SimpleRequest *request) {
 size_t TestsBuilder::sizeOfReply(SimpleReply *reply) {
   switch (reply->type) {
     case COND_WRITE:
+    case PRE_PROCESS:
       return sizeof(SimpleReply_ConditionalWrite);
     case READ:
       return ((SimpleReply_Read *)reply)->getSize();

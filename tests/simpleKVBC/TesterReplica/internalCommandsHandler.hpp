@@ -27,23 +27,38 @@ class InternalCommandsHandler : public concord::kvbc::ICommandsHandler {
                           concordlogger::Logger &logger)
       : m_storage(storage), m_blocksAppender(blocksAppender), m_logger(logger) {}
 
-  virtual int execute(uint16_t clientId,
-                      uint64_t sequenceNum,
-                      uint8_t flags,
-                      uint32_t requestSize,
-                      const char *request,
-                      uint32_t maxReplySize,
-                      char *outReply,
-                      uint32_t &outActualReplySize) override;
+  int execute(uint16_t clientId,
+              uint64_t sequenceNum,
+              uint8_t flags,
+              uint32_t requestSize,
+              const char *request,
+              uint32_t maxReplySize,
+              char *outReply,
+              uint32_t &outActualReplySize) override;
 
  private:
-  bool executeWriteCommand(uint32_t requestSize,
+  bool executeWriteCommand(bool preProcess,
+                           uint32_t requestSize,
                            const char *request,
                            uint64_t sequenceNum,
                            size_t maxReplySize,
                            char *outReply,
                            uint32_t &outReplySize);
 
+  bool handlePreProcessedCommand(uint32_t requestSize,
+                                 const char *request,
+                                 uint64_t sequenceNum,
+                                 size_t maxReplySize,
+                                 char *outReply,
+                                 uint32_t &outReplySize);
+
+  uint32_t prepareConditionalWriteReplyMsg(size_t maxReplySize,
+                                           char *outReply,
+                                           bool hasConflict,
+                                           concordUtils::BlockId currBlock);
+
+  concordUtils::SetOfKeyValuePairs createBlock(BasicRandomTests::SimpleCondWriteRequest &writeReq,
+                                               uint64_t sequenceNum);
   bool executeReadOnlyCommand(
       uint32_t requestSize, const char *request, size_t maxReplySize, char *outReply, uint32_t &outReplySize);
 

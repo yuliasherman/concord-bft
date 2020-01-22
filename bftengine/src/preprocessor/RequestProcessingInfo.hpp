@@ -22,28 +22,29 @@
 
 namespace preprocessor {
 
-struct ReplicaDataForRequest {
-  std::unique_ptr<PreProcessReplyMsg> preProcessReplyMsg_;
-};
-
 // This class collects and stores information relevant to the processing of one specific client request
 // (for all replicas).
 
 class RequestProcessingInfo {
  public:
-  RequestProcessingInfo(uint16_t numOfReplicas, ReqId reqSeqNum);
+  RequestProcessingInfo(uint16_t numOfReplicas, uint16_t numOfRequiredReplies, ReqId reqSeqNum);
   ~RequestProcessingInfo() = default;
 
-  void saveClientPreProcessRequestMsg(const ClientPreProcessReqMsgSharedPtr &clientPreProcessRequestMsg);
-  void savePreProcessResult(const concordUtils::Sliver &preProcessResult, uint32_t preProcessResultLen);
+  void saveClientPreProcessRequestMsg(ClientPreProcessReqMsgSharedPtr clientPreProcessRequestMsg);
+  void savePreProcessReplyMsg(ReplicaId replicaId, PreProcessReplyMsgSharedPtr preProcessReplyMsg);
+  void savePrimaryPreProcessResult(const concordUtils::Sliver &preProcessResult, uint32_t preProcessResultLen);
+  const SeqNum getReqSeqNum() const { return reqSeqNum_; }
+  bool enoughRepliesReceived();
 
  private:
+  static uint16_t numOfRequiredReplies_;
   const uint16_t numOfReplicas_;
   const ReqId reqSeqNum_;
-  ClientPreProcessReqMsgSharedPtr clientPreProcessRequestMsg_;  // Original client message
+  ClientPreProcessReqMsgSharedPtr clientPreProcessRequestMsg_;
+  uint16_t numOfReceivedReplies_ = 0;
   concord::util::SHA3_256::Digest myPreProcessResultHash_ = {0};
   concordUtils::Sliver myPreProcessResult_;
-  std::vector<std::unique_ptr<ReplicaDataForRequest>> replicasDataForRequest_;
+  std::vector<PreProcessReplyMsgSharedPtr> replicasDataForRequest_;
 };
 
 }  // namespace preprocessor

@@ -12,6 +12,7 @@
 #pragma once
 
 #include "messages/MessageBase.hpp"
+#include <memory>
 
 namespace preprocessor {
 
@@ -21,21 +22,32 @@ struct PreProcessReplyMsgHeader {
   ViewNum viewNum;
   SeqNum reqSeqNum;
   NodeIdType senderId;
-  uint32_t requestLength;
+  uint16_t clientId;
+  uint32_t replyLength;
 };
 // The hash of pre-execution result is a part of the message body
 #pragma pack(pop)
 
 class PreProcessReplyMsg : public MessageBase {
  public:
-  PreProcessReplyMsg(NodeIdType senderId, uint64_t reqSeqNum, ViewNum viewNum, uint32_t replyLength, const char* reply);
+  PreProcessReplyMsg(NodeIdType senderId,
+                     uint16_t clientId,
+                     uint64_t reqSeqNum,
+                     ViewNum viewNum,
+                     uint32_t replyLength,
+                     const char* reply);
 
-  void setParams(NodeIdType senderId, ReqId reqSeqNum, ViewNum view, uint32_t replyLength);
+  void setParams(NodeIdType senderId, uint16_t clientId, ReqId reqSeqNum, ViewNum view, uint32_t replyLength);
 
   static bool ToActualMsgType(MessageBase* inMsg, PreProcessReplyMsg*& outMsg);
+
+  const uint16_t clientId() const { return msgBody()->clientId; }
+  const SeqNum reqSeqNum() const { return msgBody()->reqSeqNum; }
+  const uint32_t replyLength() const { return msgBody()->replyLength; }
 
  private:
   PreProcessReplyMsgHeader* msgBody() const { return ((PreProcessReplyMsgHeader*)msgBody_); }
 };
 
+typedef std::shared_ptr<PreProcessReplyMsg> PreProcessReplyMsgSharedPtr;
 }  // namespace preprocessor

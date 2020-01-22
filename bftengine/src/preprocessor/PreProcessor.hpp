@@ -15,6 +15,7 @@
 #include "MsgHandlersRegistrator.hpp"
 #include "InternalReplicaApi.hpp"
 #include "messages/ClientPreProcessRequestMsg.hpp"
+#include "messages/PreProcessRequestMsg.hpp"
 #include "SimpleThreadPool.hpp"
 #include "Replica.hpp"
 #include "RequestProcessingInfo.hpp"
@@ -49,7 +50,10 @@ class PreProcessor {
  private:
   friend class AsyncPreProcessJob;
 
-  ClientPreProcessReqMsgSharedPtr convertMsgToCorrectType(MessageBase *&inMsg);
+  ClientPreProcessReqMsgSharedPtr convertMsgToClientPreProcessReq(MessageBase *&inMsg);
+  PreProcessRequestMsgSharedPtr convertMsgToPreProcessRequest(MessageBase *&inMsg);
+  PreProcessReplyMsgSharedPtr convertMsgToPreProcessReply(MessageBase *&inMsg);
+
   void onClientPreProcessRequestMsg(MessageBase *msg);
   void onPreProcessRequestMsg(MessageBase *msg);
   void onPreProcessReplyMsg(MessageBase *msg);
@@ -57,8 +61,10 @@ class PreProcessor {
   bool checkClientMsgCorrectness(const ClientPreProcessReqMsgSharedPtr &msg, ReqId reqSeqNum) const;
   void handleClientPreProcessRequest(const ClientPreProcessReqMsgSharedPtr &clientReqMsg);
   void sendMsg(char *msg, NodeIdType dest, uint16_t msgType, MsgSize msgSize);
-  void sendPreProcessRequestToAllReplicas(const ClientPreProcessReqMsgSharedPtr &clientPreProcessRequestMsg);
+  void sendPreProcessRequestToAllReplicas(const ClientPreProcessReqMsgSharedPtr &clientPreProcessReqMsg);
   uint16_t getClientReplyBufferId(uint16_t clientId) const { return clientId - numOfReplicas_; }
+  uint32_t launchRequestPreProcessing(
+      uint16_t clientId, ReqId reqSeqNum, uint32_t reqLength, char *reqBuf, char *resultBuf);
 
  private:
   static std::vector<std::unique_ptr<PreProcessor>> preProcessors_;  // The place holder for PreProcessor objects
@@ -87,7 +93,7 @@ class PreProcessor {
 
 class AsyncPreProcessJob : public util::SimpleThreadPool::Job {
  public:
-  AsyncPreProcessJob(PreProcessor &preProcessor, std::shared_ptr<MessageBase> msg, ReplicaId replicaId);
+  AsyncPreProcessJob(PreProcessor &preProcessor, PreProcessRequestMsgSharedPtr msg, ReplicaId replicaId);
   virtual ~AsyncPreProcessJob() = default;
 
   void execute() override;
@@ -95,7 +101,7 @@ class AsyncPreProcessJob : public util::SimpleThreadPool::Job {
 
  private:
   PreProcessor &preProcessor_;
-  std::shared_ptr<MessageBase> msg_;
+  PreProcessRequestMsgSharedPtr msg_;
   ReplicaId destId_ = 0;
 };
 

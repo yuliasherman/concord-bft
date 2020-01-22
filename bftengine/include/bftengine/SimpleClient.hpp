@@ -29,7 +29,12 @@ struct SimpleClientParams {
 };
 
 // Possible values for 'flags' parameter
-enum ClientMsgFlag : uint8_t { EMPTY_FLAGS_REQ = 0x0, READ_ONLY_REQ = 0x1, PRE_PROCESS_REQ = 0x2 };
+enum ClientMsgFlag : uint8_t {
+  EMPTY_FLAGS_REQ = 0x0,
+  READ_ONLY_REQ = 0x1,
+  PRE_PROCESS_REQ = 0x2,
+  HAS_PRE_PROCESSED = 0x4
+};
 
 class SimpleClient {
  public:

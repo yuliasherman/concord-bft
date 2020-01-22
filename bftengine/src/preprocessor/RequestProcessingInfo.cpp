@@ -19,21 +19,32 @@ using namespace std;
 using namespace concord::util;
 using namespace concordUtils;
 
-RequestProcessingInfo::RequestProcessingInfo(uint16_t numOfReplicas, ReqId reqSeqNum)
+uint16_t RequestProcessingInfo::numOfRequiredReplies_ = 0;
+
+RequestProcessingInfo::RequestProcessingInfo(uint16_t numOfReplicas, uint16_t numOfRequiredReplies, ReqId reqSeqNum)
     : numOfReplicas_(numOfReplicas), reqSeqNum_(reqSeqNum) {
+  numOfRequiredReplies_ = numOfRequiredReplies;
   for (auto i = 0; i < numOfReplicas; i++)
     // Placeholders for all replicas
     replicasDataForRequest_.push_back(nullptr);
   LOG_DEBUG(GL, "Created RequestProcessingInfo with reqSeqNum=" << reqSeqNum_ << ", numOfReplicas= " << numOfReplicas_);
 }
 
-void RequestProcessingInfo::saveClientPreProcessRequestMsg(const ClientPreProcessReqMsgSharedPtr& clientPreProcessReq) {
-  clientPreProcessRequestMsg_ = clientPreProcessReq;
+void RequestProcessingInfo::saveClientPreProcessRequestMsg(ClientPreProcessReqMsgSharedPtr clientPreProcessRequestMsg) {
+  clientPreProcessRequestMsg_ = clientPreProcessRequestMsg;
 }
 
-void RequestProcessingInfo::savePreProcessResult(const Sliver& preProcessResult, uint32_t preProcessResultLen) {
+void RequestProcessingInfo::savePrimaryPreProcessResult(const Sliver& preProcessResult, uint32_t preProcessResultLen) {
   myPreProcessResult_ = preProcessResult.subsliver(0, preProcessResultLen);
   myPreProcessResultHash_ = SHA3_256().digest(myPreProcessResult_.data(), myPreProcessResult_.length());
 }
+
+void RequestProcessingInfo::savePreProcessReplyMsg(ReplicaId replicaId,
+                                                   PreProcessReplyMsgSharedPtr preProcessReplyMsg) {
+  replicasDataForRequest_[replicaId] = preProcessReplyMsg;
+  numOfReceivedReplies_++;
+}
+
+bool RequestProcessingInfo::enoughRepliesReceived() { return (numOfReceivedReplies_ == numOfRequiredReplies_); }
 
 }  // namespace preprocessor

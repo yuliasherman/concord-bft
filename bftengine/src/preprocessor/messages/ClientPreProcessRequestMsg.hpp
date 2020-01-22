@@ -20,13 +20,7 @@ namespace preprocessor {
 
 class ClientPreProcessRequestMsg : public ClientRequestMsg {
  public:
-  ClientPreProcessRequestMsg(
-      NodeIdType sender, bool isReadOnly, uint64_t reqSeqNum, uint32_t requestLength, const char* request)
-      : ClientRequestMsg(sender, isReadOnly, reqSeqNum, reqSeqNum, request) {
-    msgBody_->msgType = MsgCode::ClientPreProcessRequest;
-  }
-
-  std::unique_ptr<MessageBase> convertToClientRequestMsg();
+  ClientPreProcessRequestMsg(NodeIdType sender, uint64_t reqSeqNum, uint32_t requestLength, const char* request);
 
   static bool ToActualMsgType(MessageBase* inMsg, ClientPreProcessRequestMsg*& outMsg);
 };

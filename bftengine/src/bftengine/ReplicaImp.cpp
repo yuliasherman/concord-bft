@@ -122,13 +122,14 @@ void ReplicaImp::onMessage<ClientRequestMsg>(ClientRequestMsg *m) {
   const NodeIdType clientId = m->clientProxyId();
   const bool readOnly = m->isReadOnly();
   const ReqId reqSeqNum = m->requestSeqNum();
+  const uint8_t flags = m->flags();
 
   LOG_INFO_F(GL,
-             "Node %d received ClientRequestMsg (clientId=%d reqSeqNum=%" PRIu64 ", readOnly=%d) from Node %d",
+             "Node %d received ClientRequestMsg (clientId=%d reqSeqNum=%" PRIu64 ", flags=%d) from Node %d",
              config_.replicaId,
              clientId,
              reqSeqNum,
-             readOnly ? 1 : 0,
+             flags,
              senderId);
 
   if (isCollectingState()) {
@@ -3034,7 +3035,7 @@ void ReplicaImp::executeRequestsInPrePrepareMsg(PrePrepareMsg *ppMsg, bool recov
       userRequestsHandler->execute(
           clientId,
           lastExecutedSeqNum + 1,
-          req.isReadOnly() ? READ_ONLY_FLAG : EMPTY_FLAGS,
+          req.flags(),
           req.requestLength(),
           req.requestBuf(),
           ReplicaConfigSingleton::GetInstance().GetMaxReplyMessageSize() - sizeof(ClientReplyMsgHeader),

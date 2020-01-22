@@ -35,19 +35,28 @@ int InternalCommandsHandler::execute(uint16_t clientId,
                                      uint32_t maxReplySize,
                                      char *outReply,
                                      uint32_t &outActualReplySize) {
-  int res;
   if (requestSize < sizeof(SimpleRequest)) {
     LOG_ERROR(
         m_logger,
         "The message is too small: requestSize is " << requestSize << ", required size is " << sizeof(SimpleRequest));
     return -1;
   }
+  LOG_DEBUG(m_logger,
+            " sequenceNum=" << sequenceNum << " flags=" << (uint16_t)flags << " requestSize=" << requestSize
+                            << " maxReplySize=" << maxReplySize);
+
   bool readOnly = flags & bftEngine::MsgFlag::READ_ONLY_FLAG;
+  bool preProcess = flags & bftEngine::MsgFlag::PRE_PROCESS_FLAG;
+  bool hasPreProcessed = flags & bftEngine::MsgFlag::HAS_PRE_PROCESSED_FLAG;
+  int res = -1;
   if (readOnly) {
     res = executeReadOnlyCommand(requestSize, request, maxReplySize, outReply, outActualReplySize);
-  } else {
-    res = executeWriteCommand(requestSize, request, sequenceNum, maxReplySize, outReply, outActualReplySize);
-  }
+  } else if (hasPreProcessed) {
+    res = handlePreProcessedCommand(requestSize, request, sequenceNum, maxReplySize, outReply, outActualReplySize);
+  } else
+    res =
+        executeWriteCommand(preProcess, requestSize, request, sequenceNum, maxReplySize, outReply, outActualReplySize);
+
   if (!res) LOG_ERROR(m_logger, "Command execution failed!");
   return res ? 0 : -1;
 }
@@ -69,6 +78,9 @@ bool InternalCommandsHandler::verifyWriteCommand(uint32_t requestSize,
                                                  const SimpleCondWriteRequest &request,
                                                  size_t maxReplySize,
                                                  uint32_t &outReplySize) const {
+  LOG_DEBUG(m_logger,
+            "type=" << request.header.type << ", numOfWrites=" << request.numOfWrites << ", numOfKeysInReadSet="
+                    << request.numOfKeysInReadSet << ", readVersion = " << request.readVersion);
   if (requestSize < sizeof(SimpleCondWriteRequest)) {
     LOG_ERROR(m_logger,
               "The message is too small: requestSize is " << requestSize << ", required size is "
@@ -87,24 +99,32 @@ bool InternalCommandsHandler::verifyWriteCommand(uint32_t requestSize,
   return true;
 }
 
-bool InternalCommandsHandler::executeWriteCommand(uint32_t requestSize,
+SetOfKeyValuePairs InternalCommandsHandler::createBlock(SimpleCondWriteRequest &writeReq, uint64_t sequenceNum) {
+  SimpleKV *keyValArray = writeReq.keyValueArray();
+  SetOfKeyValuePairs updates;
+  for (size_t i = 0; i < writeReq.numOfWrites; i++) {
+    KeyValuePair keyValue(buildSliverFromStaticBuf(keyValArray[i].simpleKey.key),
+                          buildSliverFromStaticBuf(keyValArray[i].simpleValue.value));
+    updates.insert(keyValue);
+  }
+  addMetadataKeyValue(updates, sequenceNum);
+  return updates;
+}
+
+bool InternalCommandsHandler::executeWriteCommand(bool preProcess,
+                                                  uint32_t requestSize,
                                                   const char *request,
                                                   uint64_t sequenceNum,
                                                   size_t maxReplySize,
                                                   char *outReply,
                                                   uint32_t &outReplySize) {
   auto *writeReq = (SimpleCondWriteRequest *)request;
-  LOG_INFO(m_logger,
-           "Execute WRITE command: type=" << writeReq->header.type << ", numOfWrites=" << writeReq->numOfWrites
-                                          << ", numOfKeysInReadSet=" << writeReq->numOfKeysInReadSet
-                                          << ", readVersion = " << writeReq->readVersion);
   bool result = verifyWriteCommand(requestSize, *writeReq, maxReplySize, outReplySize);
   if (!result) assert(0);
 
+  // Look for conflicts
   SimpleKey *readSetArray = writeReq->readSetArray();
   BlockId currBlock = m_storage->getLastBlock();
-
-  // Look for conflicts
   bool hasConflict = false;
   for (size_t i = 0; !hasConflict && i < writeReq->numOfKeysInReadSet; i++) {
     m_storage->mayHaveConflictBetween(
@@ -112,20 +132,25 @@ bool InternalCommandsHandler::executeWriteCommand(uint32_t requestSize,
   }
 
   if (!hasConflict) {
-    SimpleKV *keyValArray = writeReq->keyValueArray();
-    SetOfKeyValuePairs updates;
-    for (size_t i = 0; i < writeReq->numOfWrites; i++) {
-      KeyValuePair keyValue(buildSliverFromStaticBuf(keyValArray[i].simpleKey.key),
-                            buildSliverFromStaticBuf(keyValArray[i].simpleValue.value));
-      updates.insert(keyValue);
+    const SetOfKeyValuePairs &updates = createBlock(*writeReq, sequenceNum);
+    if (!preProcess) {
+      BlockId newBlockId = 0;
+      Status addSuccess = m_blocksAppender->addBlock(updates, newBlockId);
+      assert(addSuccess.isOK());
+      assert(newBlockId == currBlock + 1);
+      ++m_writesCounter;
     }
-    addMetadataKeyValue(updates, sequenceNum);
-    BlockId newBlockId = 0;
-    Status addSuccess = m_blocksAppender->addBlock(updates, newBlockId);
-    assert(addSuccess.isOK());
-    assert(newBlockId == currBlock + 1);
   }
 
+  // TBD: serialize updates to be able creating a block during handlePreProcessedCommand
+  outReplySize = prepareConditionalWriteReplyMsg(maxReplySize, outReply, hasConflict, currBlock);
+  return true;
+}
+
+uint32_t InternalCommandsHandler::prepareConditionalWriteReplyMsg(size_t maxReplySize,
+                                                                  char *outReply,
+                                                                  bool hasConflict,
+                                                                  BlockId currBlock) {
   assert(sizeof(SimpleReply_ConditionalWrite) <= maxReplySize);
   auto *reply = (SimpleReply_ConditionalWrite *)outReply;
   reply->header.type = COND_WRITE;
@@ -135,11 +160,23 @@ bool InternalCommandsHandler::executeWriteCommand(uint32_t requestSize,
   else
     reply->latestBlock = currBlock;
 
-  outReplySize = sizeof(SimpleReply_ConditionalWrite);
-  ++m_writesCounter;
   LOG_INFO(
       m_logger,
       "ConditionalWrite message handled; writesCounter=" << m_writesCounter << " currBlock=" << reply->latestBlock);
+  return sizeof(SimpleReply_ConditionalWrite);
+}
+
+bool InternalCommandsHandler::handlePreProcessedCommand(uint32_t requestSize,
+                                                        const char *request,
+                                                        uint64_t sequenceNum,
+                                                        size_t maxReplySize,
+                                                        char *outReply,
+                                                        uint32_t &outReplySize) {
+  // TBD: remove
+  outReplySize = prepareConditionalWriteReplyMsg(maxReplySize, outReply, false, m_storage->getLastBlock());
+  // TBD: deserialize updates from outReply
+  // TBD: create and write a block from updates
+  ++m_writesCounter;
   return true;
 }
 

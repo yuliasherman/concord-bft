@@ -15,10 +15,14 @@
 
 namespace preprocessor {
 
-PreProcessReplyMsg::PreProcessReplyMsg(
-    NodeIdType senderId, uint64_t reqSeqNum, ViewNum viewNum, uint32_t replyLength, const char* reply)
+PreProcessReplyMsg::PreProcessReplyMsg(NodeIdType senderId,
+                                       uint16_t clientId,
+                                       uint64_t reqSeqNum,
+                                       ViewNum viewNum,
+                                       uint32_t replyLength,
+                                       const char* reply)
     : MessageBase(senderId, MsgCode::PreProcessReply, (sizeof(PreProcessReplyMsgHeader) + replyLength)) {
-  setParams(senderId, reqSeqNum, viewNum, replyLength);
+  setParams(senderId, clientId, reqSeqNum, viewNum, replyLength);
   memcpy(body() + sizeof(PreProcessReplyMsgHeader), reply, replyLength);
 }
 
@@ -27,17 +31,22 @@ bool PreProcessReplyMsg::ToActualMsgType(MessageBase* inMsg, PreProcessReplyMsg*
   if (inMsg->size() < sizeof(PreProcessReplyMsgHeader)) return false;
 
   auto* msg = (PreProcessReplyMsg*)inMsg;
-  if (msg->size() < (sizeof(PreProcessReplyMsgHeader) + msg->msgBody()->requestLength)) return false;
+  if (msg->size() < (sizeof(PreProcessReplyMsgHeader) + msg->msgBody()->replyLength)) return false;
 
   outMsg = msg;
   return true;
 }
 
-void PreProcessReplyMsg::setParams(NodeIdType senderId, ReqId reqSeqNum, ViewNum view, uint32_t replyLength) {
+void PreProcessReplyMsg::setParams(
+    NodeIdType senderId, uint16_t clientId, ReqId reqSeqNum, ViewNum view, uint32_t replyLength) {
   msgBody()->senderId = senderId;
   msgBody()->reqSeqNum = reqSeqNum;
   msgBody()->viewNum = view;
-  msgBody()->requestLength = replyLength;
+  msgBody()->replyLength = replyLength;
+  msgBody()->clientId = clientId;
+  LOG_DEBUG(GL,
+            "senderId=" << senderId << " clientId=" << clientId << " reqSeqNum=" << reqSeqNum << " view=" << view
+                        << " replyLength=" << replyLength);
 }
 
 }  // namespace preprocessor

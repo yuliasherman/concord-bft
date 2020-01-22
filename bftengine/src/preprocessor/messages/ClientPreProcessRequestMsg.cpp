@@ -10,12 +10,21 @@
 // file.
 
 #include "ClientPreProcessRequestMsg.hpp"
+#include "SimpleClient.hpp"
 #include "assertUtils.hpp"
 
 namespace preprocessor {
 
 using namespace std;
 using namespace bftEngine;
+
+ClientPreProcessRequestMsg::ClientPreProcessRequestMsg(NodeIdType sender,
+                                                       uint64_t reqSeqNum,
+                                                       uint32_t requestLength,
+                                                       const char* request)
+    : ClientRequestMsg(sender, PRE_PROCESS_REQ, reqSeqNum, requestLength, request) {
+  msgBody_->msgType = MsgCode::ClientPreProcessRequest;
+}
 
 bool ClientPreProcessRequestMsg::ToActualMsgType(MessageBase* inMsg, ClientPreProcessRequestMsg*& outMsg) {
   Assert(inMsg->type() == MsgCode::ClientPreProcessRequest);
@@ -26,11 +35,6 @@ bool ClientPreProcessRequestMsg::ToActualMsgType(MessageBase* inMsg, ClientPrePr
 
   outMsg = msg;
   return true;
-}
-
-unique_ptr<MessageBase> ClientPreProcessRequestMsg::convertToClientRequestMsg() {
-  msgBody_->msgType = MsgCode::ClientRequest;
-  return unique_ptr<MessageBase>((MessageBase*)this);
 }
 
 }  // namespace preprocessor
