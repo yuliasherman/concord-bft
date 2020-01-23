@@ -2894,10 +2894,10 @@ void ReplicaImp::addTimers() {
                                                       Timers::Timer::RECURRING,
                                                       [this](Timers::Handle h) { onRetransmissionsTimer(h); });
   }
-  const int slowPathsTimerPeriod = controller->timeToStartSlowPathMilli();
+  // const int slowPathsTimerPeriod = controller->timeToStartSlowPathMilli();
 
-  slowPathTimer_ = TimersSingleton::getInstance().add(
-      milliseconds(slowPathsTimerPeriod), Timers::Timer::RECURRING, [this](Timers::Handle h) { onSlowPathTimer(h); });
+  // slowPathTimer_ = TimersSingleton::getInstance().add(
+  //    milliseconds(slowPathsTimerPeriod), Timers::Timer::RECURRING, [this](Timers::Handle h) { onSlowPathTimer(h); });
 
   infoReqTimer_ = TimersSingleton::getInstance().add(milliseconds(dynamicUpperLimitOfRounds->upperLimit() / 2),
                                                      Timers::Timer::RECURRING,

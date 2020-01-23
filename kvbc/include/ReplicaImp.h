@@ -92,6 +92,9 @@ class ReplicaImp : public IReplica,
 
   ~ReplicaImp() override;
 
+  Sliver createBlockFromUpdates(const concordUtils::SetOfKeyValuePairs &updates) override;
+  Status addRawBlock(Sliver rawBlock, concordUtils::BlockId &newBlock) override;
+
  protected:
   // METHODS
 

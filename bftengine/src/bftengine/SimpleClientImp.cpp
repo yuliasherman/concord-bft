@@ -31,6 +31,9 @@ using namespace std::chrono;
 
 namespace bftEngine {
 namespace impl {
+
+SimpleClientParams clientParams;
+
 class SimpleClientImp : public SimpleClient, public IReceiver {
  public:
   SimpleClientImp(
@@ -257,6 +260,13 @@ int SimpleClientImp::sendRequest(uint8_t flags,
 
     if ((uint64_t)duration_cast<milliseconds>(currTime - timeOfLastTransmission_).count() >
         limitOfExpectedOperationTime_.upperLimit()) {
+      //    if ((uint64_t)duration_cast<milliseconds>(currTime - timeOfLastTransmission_).count() >
+      //        clientParams.clientMaxRetryTimeoutMilli) {
+      LOG_INFO(GL,
+               "***** clientId_=" << clientId_ << " reqSeqNum=" << reqSeqNum << " is going to be retried"
+                                  << " currTimeOut="
+                                  << (uint64_t)duration_cast<milliseconds>(currTime - timeOfLastTransmission_).count()
+                                  << " upperLimit=" << limitOfExpectedOperationTime_.upperLimit());
       onRetransmission();
     }
   }

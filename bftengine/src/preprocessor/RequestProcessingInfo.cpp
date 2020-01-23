@@ -19,11 +19,8 @@ using namespace std;
 using namespace concord::util;
 using namespace concordUtils;
 
-uint16_t RequestProcessingInfo::numOfRequiredReplies_ = 0;
-
 RequestProcessingInfo::RequestProcessingInfo(uint16_t numOfReplicas, uint16_t numOfRequiredReplies, ReqId reqSeqNum)
-    : numOfReplicas_(numOfReplicas), reqSeqNum_(reqSeqNum) {
-  numOfRequiredReplies_ = numOfRequiredReplies;
+    : numOfReplicas_(numOfReplicas), numOfRequiredReplies_(numOfRequiredReplies), reqSeqNum_(reqSeqNum) {
   for (auto i = 0; i < numOfReplicas; i++)
     // Placeholders for all replicas
     replicasDataForRequest_.push_back(nullptr);

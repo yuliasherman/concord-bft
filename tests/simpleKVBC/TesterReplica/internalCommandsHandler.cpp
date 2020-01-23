@@ -12,12 +12,14 @@
 // file.
 
 #include "internalCommandsHandler.hpp"
+#include <unistd.h>
 #include "assertUtils.hpp"
 #include "hash_defs.h"
 #include "sliver.hpp"
 #include "kv_types.hpp"
 #include "block_metadata.hpp"
 #include <algorithm>
+#include <bcstatetransfer/SimpleBCStateTransfer.hpp>
 
 using namespace BasicRandomTests;
 
@@ -119,6 +121,12 @@ bool InternalCommandsHandler::executeWriteCommand(bool preProcess,
                                                   char *outReply,
                                                   uint32_t &outReplySize) {
   auto *writeReq = (SimpleCondWriteRequest *)request;
+
+  if (writeReq->isLong) {
+    // srand(1111);
+    // int percent = rand() % 200 + 1;
+    usleep(500 * 1000);
+  }
   bool result = verifyWriteCommand(requestSize, *writeReq, maxReplySize, outReplySize);
   if (!result) assert(0);
 
@@ -130,10 +138,13 @@ bool InternalCommandsHandler::executeWriteCommand(bool preProcess,
     m_storage->mayHaveConflictBetween(
         buildSliverFromStaticBuf(readSetArray[i].key), writeReq->readVersion + 1, currBlock, hasConflict);
   }
-
+  hasConflict = false;
   if (!hasConflict) {
     const SetOfKeyValuePairs &updates = createBlock(*writeReq, sequenceNum);
-    if (!preProcess) {
+    if (preProcess) {
+      Sliver buf = m_blocksAppender->createBlockFromUpdates(updates);
+      memcpy(outReply, buf.data(), buf.length());
+    } else {
       BlockId newBlockId = 0;
       Status addSuccess = m_blocksAppender->addBlock(updates, newBlockId);
       assert(addSuccess.isOK());
@@ -160,7 +171,7 @@ uint32_t InternalCommandsHandler::prepareConditionalWriteReplyMsg(size_t maxRepl
   else
     reply->latestBlock = currBlock;
 
-  LOG_INFO(
+  LOG_DEBUG(
       m_logger,
       "ConditionalWrite message handled; writesCounter=" << m_writesCounter << " currBlock=" << reply->latestBlock);
   return sizeof(SimpleReply_ConditionalWrite);
@@ -176,6 +187,15 @@ bool InternalCommandsHandler::handlePreProcessedCommand(uint32_t requestSize,
   outReplySize = prepareConditionalWriteReplyMsg(maxReplySize, outReply, false, m_storage->getLastBlock());
   // TBD: deserialize updates from outReply
   // TBD: create and write a block from updates
+  //  BlockId newBlockId = 0;
+  //  Status addSuccess = m_blocksAppender->addBlock(updates, newBlockId);
+  //  assert(addSuccess.isOK());
+  //  assert(newBlockId == currBlock + 1);
+
+  //  BlockId newBlockId = 0;
+  //  Sliver rawBlock(request, requestSize);
+  //  m_blocksAppender->addRawBlock(rawBlock, newBlockId);
+
   ++m_writesCounter;
   return true;
 }

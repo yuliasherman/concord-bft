@@ -66,6 +66,7 @@ class IClient {
                                     uint32_t replySize,
                                     char* outReply,
                                     uint32_t* outActualReplySize) = 0;
+  virtual const uint32_t getClientID() = 0;
 };
 
 // creates a new Client object

@@ -14,6 +14,8 @@
 #include "basicRandomTestsRunner.hpp"
 #include "SimpleClient.hpp"
 #include <chrono>
+#include <fstream>
+#include <histogram.hpp>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -43,13 +45,17 @@ void BasicRandomTestsRunner::sleep(int ops) {
 void BasicRandomTestsRunner::run() {
   testsBuilder_->createRandomTest(numOfOperations_, 1111);
 
+  concordUtils::Histogram hist;
+  hist.Clear();
+
   RequestsList requests = testsBuilder_->getRequests();
   RepliesList expectedReplies = testsBuilder_->getReplies();
   assert(requests.size() == expectedReplies.size());
 
   int ops = 0;
+  const auto start = std::chrono::steady_clock::now();
   while (!requests.empty()) {
-    sleep(ops);
+    // sleep(ops);
     SimpleRequest *request = requests.front();
     SimpleReply *expectedReply = expectedReplies.front();
     requests.pop_front();
@@ -67,16 +73,41 @@ void BasicRandomTestsRunner::run() {
     else if (request->type != COND_WRITE)
       flags = bftEngine::READ_ONLY_REQ;
 
+    const auto startReq = std::chrono::steady_clock::now();
     auto res = client_.invokeCommandSynch(
         (char *)request, requestSize, flags, seconds(0), expectedReplySize, reply.data(), &actualReplySize);
     assert(res.isOK());
+
+    if (!((SimpleCondWriteRequest *)request)->isLong)
+      hist.Add(
+          std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startReq).count());
 
     // TBD: revive it
     // if (isReplyCorrect(request->type, expectedReply, reply.data(), expectedReplySize, actualReplySize)) ops++;
     ops++;
   }
+  auto testTime =
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
   sleep(1);
   LOG_INFO(logger_, "\n*** Test completed. " << ops << " messages have been handled.");
+
+  std::fstream out("/tmp/concordbft/results/clients/" + std::to_string(client_.getClientID()) + "/summary.csv",
+                   std::ios::out);
+  if (out.is_open()) {
+    auto res = hist.stringAllBuckets();
+    //        out << std::get<0>(res) << std::endl;
+    out << std::get<1>(res) << std::endl;
+    out.close();
+    std::fstream out1("/tmp/concordbft/results/clients/" + std::to_string(client_.getClientID()) + "/summary1.csv",
+                      std::ios::out);
+    out1 << std::to_string(client_.getClientID()) << "," << hist.size() << "," << hist.min() << ","
+         << hist.Percentile(0.25) << "," << hist.Median() << "," << hist.Percentile(0.75) << "," << hist.max() << ","
+         << hist.Average() << "," << hist.StandardDeviation() << "," << testTime << std::endl;
+    out1.close();
+  } else {
+    LOG_ERROR(logger_, "unable to open output file");
+  }
+
   client_.stop();
 }
 

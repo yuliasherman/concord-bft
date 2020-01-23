@@ -58,10 +58,12 @@ class PreProcessor {
   void onPreProcessRequestMsg(MessageBase *msg);
   void onPreProcessReplyMsg(MessageBase *msg);
   void registerMsgHandlers();
-  bool checkClientMsgCorrectness(const ClientPreProcessReqMsgSharedPtr &msg, ReqId reqSeqNum) const;
-  void handleClientPreProcessRequest(const ClientPreProcessReqMsgSharedPtr &clientReqMsg);
+  bool checkClientMsgCorrectness(ClientPreProcessReqMsgSharedPtr msg, ReqId reqSeqNum) const;
+  void handleClientPreProcessRequest(ClientPreProcessReqMsgSharedPtr clientReqMsg);
   void sendMsg(char *msg, NodeIdType dest, uint16_t msgType, MsgSize msgSize);
-  void sendPreProcessRequestToAllReplicas(const ClientPreProcessReqMsgSharedPtr &clientPreProcessReqMsg);
+  void sendPreProcessRequestToAllReplicas(ClientPreProcessReqMsgSharedPtr clientPreProcessReqMsg);
+  void registerClientPreProcessRequest(uint16_t clientId, ReqId requestSeqNum, ClientPreProcessReqMsgSharedPtr msg);
+  void releaseClientPreProcessRequest(uint16_t clientId);
   uint16_t getClientReplyBufferId(uint16_t clientId) const { return clientId - numOfReplicas_; }
   uint32_t launchRequestPreProcessing(
       uint16_t clientId, ReqId reqSeqNum, uint32_t reqLength, char *reqBuf, char *resultBuf);
@@ -84,7 +86,7 @@ class PreProcessor {
   std::vector<concordUtils::Sliver> preProcessResultBuffers_;
   // clientId -> *RequestProcessingInfo
   std::unordered_map<uint16_t, std::unique_ptr<RequestProcessingInfo>> ongoingRequests_;
-  std::mutex ongoingRequestsMutex_;
+  std::recursive_mutex ongoingRequestsMutex_;
 };
 
 //**************** Class AsyncPreProcessJob ****************//

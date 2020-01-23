@@ -127,13 +127,17 @@ void TestsBuilder::createRandomTest(size_t numOfRequests, size_t seed) {
 void TestsBuilder::create(size_t numOfRequests, size_t seed) {
   srand(seed);
   for (size_t i = 0; i < numOfRequests; i++) {
-    // int percent = rand() % 100 + 1;
+    bool isLong = false;
+    int percent = rand() % 100 + 1;
+
+    if (percent <= 25) isLong = true;
+    // if (percent <= 0) isLong = true;
+    createAndInsertRandomConditionalWrite(true, isLong);
+    // createAndInsertRandomConditionalWrite(true, isLong);
+
     // if (percent <= 50)
     //  createAndInsertRandomRead();
     // else if (percent <= 95)
-
-    // createAndInsertRandomConditionalWrite(true);
-    createAndInsertRandomConditionalWrite(false);
 
     // else if (percent <= 100)
     //  createAndInsertGetLastBlock();
@@ -198,7 +202,7 @@ void TestsBuilder::addNewBlock(size_t numOfWrites, SimpleKV *writesKVArray) {
   internalBlockchain_[lastBlockId_] = newBlock;
 }
 
-void TestsBuilder::createAndInsertRandomConditionalWrite(bool preProcess) {
+void TestsBuilder::createAndInsertRandomConditionalWrite(bool preProcess, bool isLong) {
   // Create request
   BlockId readVersion = lastBlockId_;
   if (lastBlockId_ > prevLastBlockId_ + CONFLICT_DISTANCE) {
@@ -218,6 +222,7 @@ void TestsBuilder::createAndInsertRandomConditionalWrite(bool preProcess) {
   request->readVersion = readVersion;
   request->numOfKeysInReadSet = numOfKeysInReadSet;
   request->numOfWrites = numOfWrites;
+  request->isLong = isLong;
   SimpleKey *readKeysArray = request->readSetArray();
   SimpleKV *writesKVArray = request->keyValueArray();
 

@@ -74,6 +74,8 @@ class ILocalKeyValueStorageReadOnlyIterator {
 
 class IBlocksAppender {
  public:
+  virtual Sliver createBlockFromUpdates(const concordUtils::SetOfKeyValuePairs& updates) = 0;
+  virtual Status addRawBlock(Sliver rawBlock, concordUtils::BlockId& newBlock) = 0;
   virtual Status addBlock(const SetOfKeyValuePairs& updates, BlockId& outBlockId) = 0;
 };
 

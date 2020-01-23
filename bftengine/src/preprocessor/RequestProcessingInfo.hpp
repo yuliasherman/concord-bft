@@ -37,8 +37,8 @@ class RequestProcessingInfo {
   bool enoughRepliesReceived();
 
  private:
-  static uint16_t numOfRequiredReplies_;
   const uint16_t numOfReplicas_;
+  const uint16_t numOfRequiredReplies_;
   const ReqId reqSeqNum_;
   ClientPreProcessReqMsgSharedPtr clientPreProcessRequestMsg_;
   uint16_t numOfReceivedReplies_ = 0;

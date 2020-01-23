@@ -225,6 +225,13 @@ ReplicaImp::~ReplicaImp() {
   }
 }
 
+Sliver ReplicaImp::createBlockFromUpdates(const SetOfKeyValuePairs &updates) {
+  StateTransferDigest stDigest;
+  memset(stDigest.content, 0, BLOCK_DIGEST_SIZE);
+  SetOfKeyValuePairs updatesInNewBlock;
+  return createBlockFromUpdates(updates, updatesInNewBlock, stDigest);
+}
+
 Status ReplicaImp::addBlockInternal(const SetOfKeyValuePairs &updates, BlockId &outBlockId) {
   m_lastBlock++;
   m_appState->m_lastReachableBlock++;
@@ -260,6 +267,18 @@ Status ReplicaImp::addBlockInternal(const SetOfKeyValuePairs &updates, BlockId &
   }
 
   outBlockId = block;
+  return Status::OK();
+}
+
+Status ReplicaImp::addRawBlock(Sliver rawBlock, BlockId &newBlock) {
+  BlockId block = 0;
+  // TBD: fix block creation from updates
+  // Status s = m_bcDbAdapter->addBlockAndUpdateMultiKey(updatesInNewBlock, block, rawBlock);
+  //  if (!s.isOK()) {
+  //    LOG_ERROR(logger, "Failed to add block or update keys for block " << block);
+  //    return s;
+  //  }
+  newBlock = block;
   return Status::OK();
 }
 

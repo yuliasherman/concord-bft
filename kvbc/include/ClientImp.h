@@ -33,6 +33,7 @@ class ClientImp : public IClient {
                                     uint32_t replySize,
                                     char* outReply,
                                     uint32_t* outActualReplySize) override;
+  const uint32_t getClientID() override { return config_.clientId; }
 
  protected:
   ClientImp() = default;

@@ -117,6 +117,7 @@ struct SimpleCondWriteRequest {
   concordUtils::BlockId readVersion = 0;
   size_t numOfKeysInReadSet = 0;
   size_t numOfWrites = 0;
+  bool isLong = false;
 };
 
 struct SimpleReadRequest {
@@ -291,7 +292,7 @@ class TestsBuilder {
 
  private:
   void create(size_t numOfRequests, size_t seed);
-  void createAndInsertRandomConditionalWrite(bool preProcess);
+  void createAndInsertRandomConditionalWrite(bool preProcess, bool isLong = false);
   void createAndInsertRandomRead();
   void createAndInsertGetLastBlock();
   void addExpectedWriteReply(bool foundConflict);

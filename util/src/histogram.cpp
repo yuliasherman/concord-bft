@@ -57,6 +57,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "histogram.hpp"
+#include <tuple>
 
 namespace concordUtils {
 
@@ -235,7 +236,7 @@ void Histogram::Add(double value) {
     b++;
   }
   buckets_[b] += 1.0;
-  if (min_ > value) min_ = value;
+  if (min_ == -1 || min_ > value) min_ = value;
   if (max_ < value) max_ = value;
   num_++;
   sum_ += value;
@@ -316,6 +317,30 @@ std::string Histogram::ToString() const {
     r.push_back('\n');
   }
   return r;
+}
+
+int Histogram::size() const { return num_; }
+
+int Histogram::min() const { return min_; }
+
+int Histogram::max() const { return max_; }
+
+std::tuple<std::string, std::string> Histogram::stringAllBuckets() const {
+  std::string r;
+  for (int b = 0; b < kNumBuckets; b++) {
+    if (b == 0)
+      r.append(std::to_string(0));
+    else
+      r.append("," + std::to_string(kBucketLimit[b - 1]));
+  }
+  std::string r2;
+  for (int b = 0; b < kNumBuckets; b++) {
+    if (b == 0)
+      r2.append(std::to_string(buckets_[b]));
+    else
+      r2.append("," + std::to_string(buckets_[b]));
+  }
+  return std::make_tuple(r, r2);
 }
 
 }  // namespace concordUtils

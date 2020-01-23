@@ -43,8 +43,18 @@ class Histogram {
 
   std::string ToString() const;
 
+  double Median() const;
+  double Percentile(double p) const;
+  double Average() const;
+  double StandardDeviation() const;
+
+  int size() const;
+  int min() const;
+  int max() const;
+  std::tuple<std::string, std::string> stringAllBuckets() const;
+
  private:
-  double min_;
+  double min_ = -1;
   double max_;
   double num_;
   double sum_;
@@ -53,11 +63,6 @@ class Histogram {
   enum { kNumBuckets = 154 };
   static const double kBucketLimit[kNumBuckets];
   double buckets_[kNumBuckets];
-
-  double Median() const;
-  double Percentile(double p) const;
-  double Average() const;
-  double StandardDeviation() const;
 };
 
 }  // namespace concordUtils
