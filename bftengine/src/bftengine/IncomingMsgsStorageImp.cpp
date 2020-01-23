@@ -144,7 +144,7 @@ void IncomingMsgsStorageImp::dispatchMessages(std::promise<void>& signalStarted)
             msgHandlerCallback(message);
           } catch (std::exception& e) {
             LOG_WARN(GL, e.what());
-            // delete message;
+            delete message;
           }
         } else {
           LOG_WARN_F(GL, "Unknown message - delete");

@@ -135,59 +135,50 @@ void PreProcessor::onClientPreProcessRequestMsg(MessageBase *msg) {
   LOG_DEBUG(GL,
             "Replica=" << replicaId_ << " received ClientPreProcessRequestMsg reqSeqNum=" << reqSeqNum
                        << " from senderId=" << senderId);
-  try {
-    if (!checkClientMsgCorrectness(clientPreProcessReqMsg, reqSeqNum)) return;
-    {
-      lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
-      auto clientEntry = ongoingRequests_.find(clientId);
-      if (clientEntry != ongoingRequests_.end()) {
-        LOG_WARN(GL,
-                 "Replica=" << replicaId_ << " reqSeqNum=" << reqSeqNum
-                            << " for clientId=" << clientPreProcessReqMsg->clientProxyId()
-                            << " is ignored: previous client request=" << clientEntry->second->getReqSeqNum()
-                            << " is in process");
-        return;
-      }
+  if (!checkClientMsgCorrectness(clientPreProcessReqMsg, reqSeqNum)) return;
+  {
+    lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
+    auto clientEntry = ongoingRequests_.find(clientId);
+    if (clientEntry != ongoingRequests_.end()) {
+      LOG_WARN(GL,
+               "Replica=" << replicaId_ << " reqSeqNum=" << reqSeqNum
+                          << " for clientId=" << clientPreProcessReqMsg->clientProxyId()
+                          << " is ignored: previous client request=" << clientEntry->second->getReqSeqNum()
+                          << " is in process");
+      return;
     }
-    const ReqId &seqNumberOfLastReply = replica_.seqNumberOfLastReplyToClient(senderId);
-    if (seqNumberOfLastReply < reqSeqNum) {
-      if (replica_.isCurrentPrimary()) {
-        return handleClientPreProcessRequest(clientPreProcessReqMsg);
-      } else {  // Not the current primary => pass it to the primary
-        sendMsg(msg->body(), replica_.currentPrimary(), msg->type(), msg->size());
-        LOG_DEBUG(GL,
-                  "Replica=" << replicaId_ << " sending ClientPreProcessRequestMsg reqSeqNum=" << reqSeqNum
-                             << " to current primary");
-        return;
-      }
-    }
-    if (seqNumberOfLastReply == reqSeqNum) {
-      LOG_DEBUG(GL,
-                "Replica=" << replicaId_ << " reqSeqNum=" << reqSeqNum
-                           << " has already been executed - let replica complete handling");
-      auto clientRequestMsg = make_unique<ClientRequestMsg>(
-          senderId, 0, reqSeqNum, clientPreProcessReqMsg->requestLength(), clientPreProcessReqMsg->requestBuf());
-      return incomingMsgsStorage_->pushExternalMsg(move(clientRequestMsg));
-    }
-    LOG_DEBUG(GL, "Replica=" << replicaId_ << " reqSeqNum=" << reqSeqNum << " is ignored: request is old");
-  } catch (std::exception &e) {
-    LOG_ERROR(GL, "reqSeqNum=" << reqSeqNum << " caught exception: " << e.what());
-    throw runtime_error("***** ERROR *****");
   }
+  const ReqId &seqNumberOfLastReply = replica_.seqNumberOfLastReplyToClient(clientId);
+  if (seqNumberOfLastReply < reqSeqNum) {
+    if (replica_.isCurrentPrimary()) {
+      return handleClientPreProcessRequest(clientPreProcessReqMsg);
+    } else {  // Not the current primary => pass it to the primary
+      sendMsg(msg->body(), replica_.currentPrimary(), msg->type(), msg->size());
+      LOG_DEBUG(GL,
+                "Replica=" << replicaId_ << " sending ClientPreProcessRequestMsg reqSeqNum=" << reqSeqNum
+                           << " to current primary");
+      return;
+    }
+  }
+  if (seqNumberOfLastReply == reqSeqNum) {
+    LOG_DEBUG(GL,
+              "Replica=" << replicaId_ << " reqSeqNum=" << reqSeqNum
+                         << " has already been executed - let replica complete handling");
+    auto clientRequestMsg = make_unique<ClientRequestMsg>(
+        senderId, 0, reqSeqNum, clientPreProcessReqMsg->requestLength(), clientPreProcessReqMsg->requestBuf());
+    return incomingMsgsStorage_->pushExternalMsg(move(clientRequestMsg));
+  }
+  LOG_DEBUG(GL, "Replica=" << replicaId_ << " reqSeqNum=" << reqSeqNum << " is ignored: request is old");
 }
 
 void PreProcessor::registerClientPreProcessRequest(uint16_t clientId,
                                                    ReqId requestSeqNum,
                                                    ClientPreProcessReqMsgSharedPtr msg) {
-  try {
-    lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
-    // Only one request is supported per client for now
-    ongoingRequests_[clientId] = make_unique<RequestProcessingInfo>(
-        numOfReplicas_, ReplicaConfigSingleton::GetInstance().GetFVal() + 1, requestSeqNum);
-    ongoingRequests_[clientId]->saveClientPreProcessRequestMsg(msg);
-  } catch (std::exception &e) {
-    LOG_ERROR(GL, "reqSeqNum=" << requestSeqNum << ": caught exception" << e.what());
-  }
+  lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
+  // Only one request is supported per client for now
+  ongoingRequests_[clientId] = make_unique<RequestProcessingInfo>(
+      numOfReplicas_, ReplicaConfigSingleton::GetInstance().GetFVal() + 1, requestSeqNum);
+  ongoingRequests_[clientId]->saveClientPreProcessRequestMsg(msg);
 }
 
 void PreProcessor::releaseClientPreProcessRequest(uint16_t clientId) {
@@ -211,11 +202,7 @@ void PreProcessor::handleClientPreProcessRequest(ClientPreProcessReqMsgSharedPtr
                                                                  clientPreProcessRequestMsg->requestBuf(),
                                                                  (char *)replyEntry.data());
   lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
-  try {
-    ongoingRequests_[clientId]->savePrimaryPreProcessResult(replyEntry, actualResultBufLen);
-  } catch (std::exception &e) {
-    LOG_ERROR(GL, "reqSeqNum=" << requestSeqNum << ": caught exception" << e.what());
-  }
+  ongoingRequests_[clientId]->savePrimaryPreProcessResult(replyEntry, actualResultBufLen);
 }
 
 uint32_t PreProcessor::launchRequestPreProcessing(
@@ -267,36 +254,31 @@ void PreProcessor::onPreProcessReplyMsg(MessageBase *msg) {
   const SeqNum &reqSeqNum = preProcessReplyMsg->reqSeqNum();
   const NodeIdType &senderId = preProcessReplyMsg->senderId();
   const uint16_t &clientId = preProcessReplyMsg->clientId();
-  LOG_DEBUG(GL, "Replica=" << replicaId_ << " reqSeqNum=" << reqSeqNum << " received from replica=" << senderId);
-  try {
-    {
-      lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
-      auto clientEntry = ongoingRequests_.find(clientId);
-      if ((clientEntry == ongoingRequests_.end()) || (clientEntry->second->getReqSeqNum() != reqSeqNum)) {
-        LOG_DEBUG(GL,
-                  "Replica=" << replicaId_ << " Request with reqSeqNum=" << reqSeqNum
-                             << " received from replica=" << senderId << " clientId=" << clientId
-                             << " is ignored as no ongoing request from this client and given sequence number found");
-        return;
-      }
-      ongoingRequests_[preProcessReplyMsg->clientId()]->savePreProcessReplyMsg(senderId, preProcessReplyMsg);
-
-      // TBD replace by signatures collector logic and verify (f + 1) same hashes
-      if (ongoingRequests_[preProcessReplyMsg->clientId()]->enoughRepliesReceived()) {
-        LOG_DEBUG(GL, "Replica=" << replicaId_ << " All expected replies received for reqSeqNum=" << reqSeqNum);
-
-        // TBD avoid copy of the message body, if possible
-        auto clientRequestMsg = make_unique<ClientRequestMsg>(
-            clientId, HAS_PRE_PROCESSED_FLAG, reqSeqNum, preProcessReplyMsg->replyLength(), preProcessReplyMsg->body());
-        incomingMsgsStorage_->pushExternalMsg(move(clientRequestMsg));
-        releaseClientPreProcessRequest(clientId);
-        LOG_DEBUG(GL,
-                  "Replica=" << replicaId_ << " clientId=" << clientId << " reqSeqNum=" << reqSeqNum
-                             << " pre-processing completed");
-      }
+  {
+    lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
+    auto clientEntry = ongoingRequests_.find(clientId);
+    if ((clientEntry == ongoingRequests_.end()) || (clientEntry->second->getReqSeqNum() != reqSeqNum)) {
+      LOG_DEBUG(GL,
+                "Replica=" << replicaId_ << " Request with reqSeqNum=" << reqSeqNum
+                           << " received from replica=" << senderId << " clientId=" << clientId
+                           << " is ignored as no ongoing request from this client and given sequence number found");
+      return;
     }
-  } catch (std::exception &e) {
-    LOG_ERROR(GL, "reqSeqNum=" << reqSeqNum << ": caught exception" << e.what());
+    ongoingRequests_[preProcessReplyMsg->clientId()]->savePreProcessReplyMsg(senderId, preProcessReplyMsg);
+
+    // TBD replace by signatures collector logic and verify (f + 1) same hashes
+    if (ongoingRequests_[preProcessReplyMsg->clientId()]->enoughRepliesReceived()) {
+      LOG_DEBUG(GL, "Replica=" << replicaId_ << " All expected replies received for reqSeqNum=" << reqSeqNum);
+
+      // TBD avoid copy of the message body, if possible
+      auto clientRequestMsg = make_unique<ClientRequestMsg>(
+          clientId, HAS_PRE_PROCESSED_FLAG, reqSeqNum, preProcessReplyMsg->replyLength(), preProcessReplyMsg->body());
+      incomingMsgsStorage_->pushExternalMsg(move(clientRequestMsg));
+      releaseClientPreProcessRequest(clientId);
+      LOG_DEBUG(GL,
+                "Replica=" << replicaId_ << " clientId=" << clientId << " reqSeqNum=" << reqSeqNum
+                           << " pre-processing completed");
+    }
   }
 }
 
