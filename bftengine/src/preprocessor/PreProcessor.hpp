@@ -63,7 +63,7 @@ class PreProcessor {
   void sendMsg(char *msg, NodeIdType dest, uint16_t msgType, MsgSize msgSize);
   void sendPreProcessRequestToAllReplicas(ClientPreProcessReqMsgSharedPtr clientPreProcessReqMsg);
   void registerClientPreProcessRequest(uint16_t clientId, ReqId requestSeqNum, ClientPreProcessReqMsgSharedPtr msg);
-  void releaseClientPreProcessRequest(uint16_t clientId);
+  void releaseClientPreProcessRequest(uint16_t clientId, ReqId requestSeqNum);
   uint16_t getClientReplyBufferId(uint16_t clientId) const { return clientId - numOfReplicas_; }
   uint32_t launchRequestPreProcessing(
       uint16_t clientId, ReqId reqSeqNum, uint32_t reqLength, char *reqBuf, char *resultBuf);

@@ -125,7 +125,7 @@ bool InternalCommandsHandler::executeWriteCommand(bool preProcess,
   if (writeReq->isLong) {
     // srand(1111);
     // int percent = rand() % 200 + 1;
-    usleep(500 * 1000);
+    usleep(250 * 1000);
   }
   bool result = verifyWriteCommand(requestSize, *writeReq, maxReplySize, outReplySize);
   if (!result) assert(0);

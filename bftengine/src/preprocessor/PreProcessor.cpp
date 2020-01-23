@@ -179,11 +179,13 @@ void PreProcessor::registerClientPreProcessRequest(uint16_t clientId,
   ongoingRequests_[clientId] = make_unique<RequestProcessingInfo>(
       numOfReplicas_, ReplicaConfigSingleton::GetInstance().GetFVal() + 1, requestSeqNum);
   ongoingRequests_[clientId]->saveClientPreProcessRequestMsg(msg);
+  LOG_DEBUG(GL, "clientId=" << clientId << " requestSeqNum=" << requestSeqNum << " REGISTERED");
 }
 
-void PreProcessor::releaseClientPreProcessRequest(uint16_t clientId) {
+void PreProcessor::releaseClientPreProcessRequest(uint16_t clientId, ReqId requestSeqNum) {
   lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
   ongoingRequests_.erase(clientId);
+  LOG_DEBUG(GL, "clientId=" << clientId << " requestSeqNum=" << requestSeqNum << " RELEASED");
 }
 
 // Start client request handling - primary replica
@@ -274,7 +276,7 @@ void PreProcessor::onPreProcessReplyMsg(MessageBase *msg) {
       auto clientRequestMsg = make_unique<ClientRequestMsg>(
           clientId, HAS_PRE_PROCESSED_FLAG, reqSeqNum, preProcessReplyMsg->replyLength(), preProcessReplyMsg->body());
       incomingMsgsStorage_->pushExternalMsg(move(clientRequestMsg));
-      releaseClientPreProcessRequest(clientId);
+      releaseClientPreProcessRequest(clientId, reqSeqNum);
       LOG_DEBUG(GL,
                 "Replica=" << replicaId_ << " clientId=" << clientId << " reqSeqNum=" << reqSeqNum
                            << " pre-processing completed");
