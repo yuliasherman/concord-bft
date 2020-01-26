@@ -33,8 +33,9 @@ class RequestProcessingInfo {
   void saveClientPreProcessRequestMsg(ClientPreProcessReqMsgSharedPtr clientPreProcessRequestMsg);
   void savePreProcessReplyMsg(ReplicaId replicaId, PreProcessReplyMsgSharedPtr preProcessReplyMsg);
   void savePrimaryPreProcessResult(const concordUtils::Sliver &preProcessResult, uint32_t preProcessResultLen);
+  ClientPreProcessReqMsgSharedPtr getClientPreProcessRequestMsg() const { return clientPreProcessRequestMsg_; }
   const SeqNum getReqSeqNum() const { return reqSeqNum_; }
-  bool enoughRepliesReceived();
+  bool enoughRepliesReceived() const;
 
  private:
   const uint16_t numOfReplicas_;

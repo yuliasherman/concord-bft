@@ -130,10 +130,10 @@ void SimpleClientImp::onMessageFromReplica(MessageBase* msg) {
 
   replysCertificate_.addMsg(replyMsg, replyMsg->senderId());
 
-  if (replysCertificate_.isInconsistent()) {
-    // TODO(GG): print .....
-    replysCertificate_.resetAndFree();
-  }
+  //  if (replysCertificate_.isInconsistent()) {
+  //    // TODO(GG): print .....
+  //    replysCertificate_.resetAndFree();
+  //  }
 }
 
 void SimpleClientImp::onRetransmission() { sendPendingRequest(); }
@@ -205,7 +205,7 @@ int SimpleClientImp::sendRequest(uint8_t flags,
     communication_->Start();  // TODO(GG): patch ................ change
   }
 
-  Assert(replysCertificate_.isEmpty());
+  if (!isPreProcessRequired) Assert(replysCertificate_.isEmpty());
   Assert(msgQueue_.empty());
   Assert(pendingRequest_ == nullptr);
   Assert(timeOfLastTransmission_ == MinTime);
@@ -226,6 +226,7 @@ int SimpleClientImp::sendRequest(uint8_t flags,
 
   bool requestTimeout = false;
   bool requestCommitted = false;
+  uint16_t NUM_OF_REPLIES = 0;
 
   while (true) {
     std::queue<MessageBase*> newMsgs;
@@ -236,16 +237,23 @@ int SimpleClientImp::sendRequest(uint8_t flags,
     }
 
     while (!newMsgs.empty()) {
-      if (replysCertificate_.isComplete()) {
+      if ((replysCertificate_.isComplete()) || (isPreProcessRequired && (NUM_OF_REPLIES == replicas_.size() - 1))) {
         delete newMsgs.front();
       } else {
+        if (isPreProcessRequired) NUM_OF_REPLIES++;
         MessageBase* msg = newMsgs.front();
         onMessageFromReplica(msg);
       }
       newMsgs.pop();
     }
 
-    if (replysCertificate_.isComplete()) {
+    if (isPreProcessRequired) {
+      if (NUM_OF_REPLIES == replicas_.size() - 1) {
+        NUM_OF_REPLIES = 0;
+        requestCommitted = true;
+        break;
+      }
+    } else if (replysCertificate_.isComplete()) {
       requestCommitted = true;
       break;
     }
@@ -258,49 +266,56 @@ int SimpleClientImp::sendRequest(uint8_t flags,
       break;
     }
 
+    //    if ((uint64_t)duration_cast<milliseconds>(currTime - timeOfLastTransmission_).count() >
+    //        limitOfExpectedOperationTime_.upperLimit()) {
     if ((uint64_t)duration_cast<milliseconds>(currTime - timeOfLastTransmission_).count() >
-        limitOfExpectedOperationTime_.upperLimit()) {
-      //    if ((uint64_t)duration_cast<milliseconds>(currTime - timeOfLastTransmission_).count() >
-      //        clientParams.clientMaxRetryTimeoutMilli) {
+        clientParams.clientMaxRetryTimeoutMilli) {
       LOG_INFO(GL,
                "***** clientId_=" << clientId_ << " reqSeqNum=" << reqSeqNum << " is going to be retried"
                                   << " currTimeOut="
                                   << (uint64_t)duration_cast<milliseconds>(currTime - timeOfLastTransmission_).count()
-                                  << " upperLimit=" << limitOfExpectedOperationTime_.upperLimit());
+                                  << " upperLimit=" << clientParams.clientMaxRetryTimeoutMilli);
       onRetransmission();
     }
   }
 
   if (requestCommitted) {
-    Assert(replysCertificate_.isComplete());
-
-    uint64_t durationMilli = duration_cast<milliseconds>(getMonotonicTime() - beginTime).count();
-    limitOfExpectedOperationTime_.add(durationMilli);
-
-    LOG_DEBUG_F(GL,
-                "Client %d - request %" PRIu64
-                " has committed "
-                "(isRO=%d, isPreProcess=%d, request size=%zu,  retransmissionMilli=%d) ",
-                clientId_,
-                reqSeqNum,
-                (int)isReadOnly,
-                isPreProcessRequired,
-                (size_t)lengthOfRequest,
-                (int)limitOfExpectedOperationTime_.upperLimit());
-
-    ClientReplyMsg* correctReply = replysCertificate_.bestCorrectMsg();
-
-    primaryReplicaIsKnown_ = true;
-    knownPrimaryReplica_ = correctReply->currentPrimaryId();
-
-    if (correctReply->replyLength() <= lengthOfReplyBuffer) {
-      memcpy(replyBuffer, correctReply->replyBuf(), correctReply->replyLength());
-      actualReplyLength = correctReply->replyLength();
+    if (isPreProcessRequired) {
+      primaryReplicaIsKnown_ = true;
+      knownPrimaryReplica_ = 0;
       reset();
       return 0;
     } else {
-      reset();
-      return (-2);
+      Assert(replysCertificate_.isComplete());
+
+      uint64_t durationMilli = duration_cast<milliseconds>(getMonotonicTime() - beginTime).count();
+      limitOfExpectedOperationTime_.add(durationMilli);
+
+      LOG_DEBUG_F(GL,
+                  "Client %d - request %" PRIu64
+                  " has committed "
+                  "(isRO=%d, isPreProcess=%d, request size=%zu,  retransmissionMilli=%d) ",
+                  clientId_,
+                  reqSeqNum,
+                  (int)isReadOnly,
+                  isPreProcessRequired,
+                  (size_t)lengthOfRequest,
+                  (int)limitOfExpectedOperationTime_.upperLimit());
+
+      ClientReplyMsg* correctReply = replysCertificate_.bestCorrectMsg();
+
+      primaryReplicaIsKnown_ = true;
+      knownPrimaryReplica_ = correctReply->currentPrimaryId();
+
+      if (correctReply->replyLength() <= lengthOfReplyBuffer) {
+        memcpy(replyBuffer, correctReply->replyBuf(), correctReply->replyLength());
+        actualReplyLength = correctReply->replyLength();
+        reset();
+        return 0;
+      } else {
+        reset();
+        return (-2);
+      }
     }
   } else if (requestTimeout) {
     // Logger::printInfo("Client %d - request %" PRIu64 " - timeout");

@@ -17,12 +17,13 @@ namespace preprocessor {
 
 PreProcessRequestMsg::PreProcessRequestMsg(NodeIdType senderId,
                                            uint16_t clientId,
+                                           uint8_t sendReply,
                                            uint64_t reqSeqNum,
                                            ViewNum currentView,
                                            uint32_t reqLength,
                                            const char* request)
     : MessageBase(senderId, MsgCode::PreProcessRequest, (sizeof(PreProcessRequestMsgHeader) + reqLength)) {
-  setParams(senderId, clientId, reqSeqNum, currentView, reqLength);
+  setParams(senderId, clientId, sendReply, reqSeqNum, currentView, reqLength);
   memcpy(body() + sizeof(PreProcessRequestMsgHeader), request, reqLength);
 }
 
@@ -46,9 +47,10 @@ bool PreProcessRequestMsg::ToActualMsgType(MessageBase* inMsg, PreProcessRequest
 }
 
 void PreProcessRequestMsg::setParams(
-    NodeIdType senderId, uint16_t clientId, ReqId reqSeqNum, ViewNum view, uint32_t reqLength) {
+    NodeIdType senderId, uint16_t clientId, uint8_t sendReply, ReqId reqSeqNum, ViewNum view, uint32_t reqLength) {
   msgBody()->senderId = senderId;
   msgBody()->clientId = clientId;
+  msgBody()->sendReply = sendReply;
   msgBody()->reqSeqNum = reqSeqNum;
   msgBody()->viewNum = view;
   msgBody()->requestLength = reqLength;

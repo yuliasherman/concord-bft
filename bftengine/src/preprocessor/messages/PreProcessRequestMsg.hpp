@@ -19,6 +19,7 @@ namespace preprocessor {
 #pragma pack(push, 1)
 struct PreProcessRequestMsgHeader {
   MessageBase::Header header;
+  uint8_t sendReply;  // TBD: REMOVE
   ViewNum viewNum;
   SeqNum reqSeqNum;
   uint16_t clientId;
@@ -31,6 +32,7 @@ class PreProcessRequestMsg : public MessageBase {
  public:
   PreProcessRequestMsg(NodeIdType senderId,
                        uint16_t clientId,
+                       uint8_t sendReply,
                        uint64_t reqSeqNum,
                        ViewNum view,
                        uint32_t reqLength,
@@ -42,8 +44,10 @@ class PreProcessRequestMsg : public MessageBase {
   const uint16_t clientId() const { return msgBody()->clientId; }
   const SeqNum reqSeqNum() const { return msgBody()->reqSeqNum; }
   const ViewNum viewNum() const { return msgBody()->viewNum; }
+  const uint8_t sendReply() const { return msgBody()->sendReply; }
 
-  void setParams(NodeIdType senderId, uint16_t clientId, ReqId reqSeqNum, ViewNum view, uint32_t reqLength);
+  void setParams(
+      NodeIdType senderId, uint16_t clientId, uint8_t sendReply, ReqId reqSeqNum, ViewNum view, uint32_t reqLength);
 
   static bool ToActualMsgType(MessageBase* inMsg, PreProcessRequestMsg*& outMsg);
 

@@ -9,6 +9,7 @@
 // these subcomponents is subject to the terms and conditions of the sub-component's license, as noted in the LICENSE
 // file.
 
+#include <messages/ClientReplyMsg.hpp>
 #include "PreProcessor.hpp"
 #include "Logger.hpp"
 #include "MsgHandlersRegistrator.hpp"
@@ -194,7 +195,7 @@ void PreProcessor::handleClientPreProcessRequest(ClientPreProcessReqMsgSharedPtr
   const ReqId &requestSeqNum = clientPreProcessRequestMsg->requestSeqNum();
 
   registerClientPreProcessRequest(clientId, requestSeqNum, clientPreProcessRequestMsg);
-  sendPreProcessRequestToAllReplicas(clientPreProcessRequestMsg);
+  sendPreProcessRequestToAllReplicas(clientPreProcessRequestMsg, 0);
 
   // Primary replica: pre-process the request and calculate a hash of the result
   auto &replyEntry = preProcessResultBuffers_[getClientReplyBufferId(clientId)];
@@ -228,21 +229,24 @@ void PreProcessor::onPreProcessRequestMsg(MessageBase *msg) {
             "Replica=" << replicaId_ << " received reqSeqNum=" << preProcessReqMsg->reqSeqNum()
                        << " from senderId=" << preProcessReqMsg->senderId());
 
-  // TBD: Non-primary replica: pre-process the request and calculate a hash of the result
-  char *replyBuffer = (char *)preProcessResultBuffers_[getClientReplyBufferId(preProcessReqMsg->clientId())].data();
-  const uint32_t actualResultBufLen = launchRequestPreProcessing(preProcessReqMsg->clientId(),
-                                                                 preProcessReqMsg->reqSeqNum(),
-                                                                 preProcessReqMsg->requestLength(),
-                                                                 preProcessReqMsg->requestBuf(),
-                                                                 replyBuffer);
-  // TBD calculate a hash of the result, sign and send back
-  auto replyMsg = make_shared<PreProcessReplyMsg>(replicaId_,
-                                                  preProcessReqMsg->clientId(),
-                                                  preProcessReqMsg->reqSeqNum(),
-                                                  preProcessReqMsg->viewNum(),
-                                                  actualResultBufLen,
-                                                  replyBuffer);
-  sendMsg(replyMsg->body(), replica_.currentPrimary(), replyMsg->type(), replyMsg->size());
+  if (!preProcessReqMsg->sendReply()) {
+    // TBD: Non-primary replica: pre-process the request and calculate a hash of the result
+    char *replyBuffer = (char *)preProcessResultBuffers_[getClientReplyBufferId(preProcessReqMsg->clientId())].data();
+    const uint32_t actualResultBufLen = launchRequestPreProcessing(preProcessReqMsg->clientId(),
+                                                                   preProcessReqMsg->reqSeqNum(),
+                                                                   preProcessReqMsg->requestLength(),
+                                                                   preProcessReqMsg->requestBuf(),
+                                                                   replyBuffer);
+    // TBD calculate a hash of the result, sign and send back
+    auto replyMsg = make_shared<PreProcessReplyMsg>(replicaId_,
+                                                    preProcessReqMsg->clientId(),
+                                                    preProcessReqMsg->reqSeqNum(),
+                                                    preProcessReqMsg->viewNum(),
+                                                    actualResultBufLen,
+                                                    replyBuffer);
+    sendMsg(replyMsg->body(), replica_.currentPrimary(), replyMsg->type(), replyMsg->size());
+  } else
+    sendClientReplyMsg(replicaId_, preProcessReqMsg->clientId(), preProcessReqMsg->reqSeqNum());
   LOG_DEBUG(GL,
             "Replica=" << replicaId_ << " sent reqSeqNum=" << preProcessReqMsg->reqSeqNum()
                        << " to the primary replica=" << replica_.currentPrimary());
@@ -275,13 +279,35 @@ void PreProcessor::onPreProcessReplyMsg(MessageBase *msg) {
       // TBD avoid copy of the message body, if possible
       auto clientRequestMsg = make_unique<ClientRequestMsg>(
           clientId, HAS_PRE_PROCESSED_FLAG, reqSeqNum, preProcessReplyMsg->replyLength(), preProcessReplyMsg->body());
-      incomingMsgsStorage_->pushExternalMsg(move(clientRequestMsg));
+
+      // TBD: REMOVE
+      sendPreProcessRequestToAllReplicas(
+          ongoingRequests_[preProcessReplyMsg->clientId()]->getClientPreProcessRequestMsg(), 1);
+
+      // TBD: revive it
+      // incomingMsgsStorage_->pushExternalMsg(move(clientRequestMsg));
       releaseClientPreProcessRequest(clientId, reqSeqNum);
+      sendClientReplyMsg(replicaId_, clientId, reqSeqNum);
       LOG_DEBUG(GL,
                 "Replica=" << replicaId_ << " clientId=" << clientId << " reqSeqNum=" << reqSeqNum
                            << " pre-processing completed");
     }
   }
+}
+
+void PreProcessor::sendClientReplyMsg(ReplicaId senderId, NodeIdType clientId, SeqNum reqSeqNum) {
+  const uint32_t replyBufSize = 50;
+  char *replyBuf = new char[replyBufSize];
+  memset(replyBuf, '5', replyBufSize);
+  auto *replyMsg = new ClientReplyMsg(senderId, reqSeqNum, replyBuf, replyBufSize);
+  replyMsg->setPrimaryId(replicaId_);
+  sendMsg(replyMsg->body(), clientId, MsgCode::ClientReply, replyMsg->size());
+  LOG_DEBUG(GL,
+            "Sender=" << replyMsg->senderId() << " sent reply message to clientId=" << clientId
+                      << " replyLength=" << replyMsg->replyLength() << " message size=" << replyMsg->size()
+                      << " reqSeqNum=" << replyMsg->reqSeqNum()
+                      << " currentPrimaryId=" << replyMsg->currentPrimaryId());
+  delete replyMsg;
 }
 
 void PreProcessor::addNewPreProcessor(shared_ptr<MsgsCommunicator> &msgsCommunicator,
@@ -302,10 +328,12 @@ void PreProcessor::sendMsg(char *msg, NodeIdType dest, uint16_t msgType, MsgSize
   }
 }
 
-void PreProcessor::sendPreProcessRequestToAllReplicas(ClientPreProcessReqMsgSharedPtr clientPreProcessReqMsg) {
+void PreProcessor::sendPreProcessRequestToAllReplicas(ClientPreProcessReqMsgSharedPtr clientPreProcessReqMsg,
+                                                      uint8_t sendReply) {
   PreProcessRequestMsgSharedPtr preProcessRequestMsg =
       make_shared<PreProcessRequestMsg>(replicaId_,
                                         clientPreProcessReqMsg->clientProxyId(),
+                                        sendReply,
                                         clientPreProcessReqMsg->requestSeqNum(),
                                         replica_.getCurrentView(),
                                         clientPreProcessReqMsg->requestLength(),

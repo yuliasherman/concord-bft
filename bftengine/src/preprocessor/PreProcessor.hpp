@@ -61,12 +61,13 @@ class PreProcessor {
   bool checkClientMsgCorrectness(ClientPreProcessReqMsgSharedPtr msg, ReqId reqSeqNum) const;
   void handleClientPreProcessRequest(ClientPreProcessReqMsgSharedPtr clientReqMsg);
   void sendMsg(char *msg, NodeIdType dest, uint16_t msgType, MsgSize msgSize);
-  void sendPreProcessRequestToAllReplicas(ClientPreProcessReqMsgSharedPtr clientPreProcessReqMsg);
+  void sendPreProcessRequestToAllReplicas(ClientPreProcessReqMsgSharedPtr clientPreProcessReqMsg, uint8_t sendReply);
   void registerClientPreProcessRequest(uint16_t clientId, ReqId requestSeqNum, ClientPreProcessReqMsgSharedPtr msg);
   void releaseClientPreProcessRequest(uint16_t clientId, ReqId requestSeqNum);
   uint16_t getClientReplyBufferId(uint16_t clientId) const { return clientId - numOfReplicas_; }
   uint32_t launchRequestPreProcessing(
       uint16_t clientId, ReqId reqSeqNum, uint32_t reqLength, char *reqBuf, char *resultBuf);
+  void sendClientReplyMsg(ReplicaId senderId, NodeIdType clientId, SeqNum reqSeqNum);
 
  private:
   static std::vector<std::unique_ptr<PreProcessor>> preProcessors_;  // The place holder for PreProcessor objects

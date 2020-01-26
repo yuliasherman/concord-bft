@@ -42,6 +42,6 @@ void RequestProcessingInfo::savePreProcessReplyMsg(ReplicaId replicaId,
   numOfReceivedReplies_++;
 }
 
-bool RequestProcessingInfo::enoughRepliesReceived() { return (numOfReceivedReplies_ == numOfRequiredReplies_); }
+bool RequestProcessingInfo::enoughRepliesReceived() const { return (numOfReceivedReplies_ == numOfRequiredReplies_); }
 
 }  // namespace preprocessor
