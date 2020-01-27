@@ -199,12 +199,12 @@ void PreProcessor::handleClientPreProcessRequest(ClientPreProcessReqMsgSharedPtr
   sendPreProcessRequestToAllReplicas(clientPreProcessRequestMsg, 0);
 
   // Primary replica: pre-process the request and calculate a hash of the result
-  auto &replyEntry = preProcessResultBuffers_[getClientReplyBufferId(clientId)];
-  launchRequestPreProcessing(clientId,
-                             requestSeqNum,
-                             clientPreProcessRequestMsg->requestLength(),
-                             clientPreProcessRequestMsg->requestBuf(),
-                             (char *)replyEntry.data());
+//  auto &replyEntry = preProcessResultBuffers_[getClientReplyBufferId(clientId)];
+//  launchRequestPreProcessing(clientId,
+//                             requestSeqNum,
+//                             clientPreProcessRequestMsg->requestLength(),
+//                             clientPreProcessRequestMsg->requestBuf(),
+//                             (char *)replyEntry.data());
   // lock_guard<recursive_mutex> lock(ongoingRequestsMutex_);
   // ongoingRequests_[clientId]->savePrimaryPreProcessResult(replyEntry, actualResultBufLen);
   // sendClientReplyMsg(replicaId_, clientId, reqSeqNum);
