@@ -70,6 +70,7 @@ class PreProcessor {
       uint16_t clientId, ReqId reqSeqNum, uint32_t reqLength, char *reqBuf, char *resultBuf);
   void sendClientReplyMsg(ReplicaId senderId, NodeIdType clientId, SeqNum reqSeqNum);
   void asyncPreProcessing(ClientPreProcessReqMsgSharedPtr preProcessReqMsg);
+  void asyncPreProcessing(PreProcessRequestMsgSharedPtr preProcessReqMsg);
 
  private:
   static std::vector<std::unique_ptr<PreProcessor>> preProcessors_;  // The place holder for PreProcessor objects
@@ -98,7 +99,8 @@ class PreProcessor {
 
 class AsyncPreProcessJob : public util::SimpleThreadPool::Job {
  public:
-  AsyncPreProcessJob(PreProcessor &preProcessor, ClientPreProcessReqMsgSharedPtr msg, char *replyBuffer);
+  AsyncPreProcessJob(PreProcessor &preProcessor, PreProcessRequestMsgSharedPtr msg, char *replyBuffer);
+
   virtual ~AsyncPreProcessJob() = default;
 
   void execute() override;
@@ -106,7 +108,7 @@ class AsyncPreProcessJob : public util::SimpleThreadPool::Job {
 
  private:
   PreProcessor &preProcessor_;
-  ClientPreProcessReqMsgSharedPtr msg_;
+  PreProcessRequestMsgSharedPtr msg_;
   char *replyBuffer_ = nullptr;
 };
 
