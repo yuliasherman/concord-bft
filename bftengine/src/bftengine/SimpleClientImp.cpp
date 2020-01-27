@@ -237,7 +237,7 @@ int SimpleClientImp::sendRequest(uint8_t flags,
     }
 
     while (!newMsgs.empty()) {
-      if ((replysCertificate_.isComplete()) || (isPreProcessRequired && (NUM_OF_REPLIES == replicas_.size() - 1))) {
+      if ((replysCertificate_.isComplete()) || (isPreProcessRequired && (NUM_OF_REPLIES == replicas_.size()))) {
         delete newMsgs.front();
       } else {
         if (isPreProcessRequired) NUM_OF_REPLIES++;
@@ -248,7 +248,7 @@ int SimpleClientImp::sendRequest(uint8_t flags,
     }
 
     if (isPreProcessRequired) {
-      if (NUM_OF_REPLIES == replicas_.size() - 1) {
+      if (NUM_OF_REPLIES == replicas_.size()) {
         NUM_OF_REPLIES = 0;
         requestCommitted = true;
         break;

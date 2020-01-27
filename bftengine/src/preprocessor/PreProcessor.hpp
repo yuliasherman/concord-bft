@@ -22,7 +22,7 @@
 
 namespace preprocessor {
 
-class AsyncPreProcessJob;
+class AsyncSendPreProcessJob;
 
 //**************** Class PreProcessor ****************//
 
@@ -48,6 +48,7 @@ class PreProcessor {
                                  InternalReplicaApi &replica);
 
  private:
+  friend class AsyncSendPreProcessJob;
   friend class AsyncPreProcessJob;
 
   ClientPreProcessReqMsgSharedPtr convertMsgToClientPreProcessReq(MessageBase *&inMsg);
@@ -68,6 +69,7 @@ class PreProcessor {
   uint32_t launchRequestPreProcessing(
       uint16_t clientId, ReqId reqSeqNum, uint32_t reqLength, char *reqBuf, char *resultBuf);
   void sendClientReplyMsg(ReplicaId senderId, NodeIdType clientId, SeqNum reqSeqNum);
+  void asyncPreProcessing(ClientPreProcessReqMsgSharedPtr preProcessReqMsg);
 
  private:
   static std::vector<std::unique_ptr<PreProcessor>> preProcessors_;  // The place holder for PreProcessor objects
@@ -96,8 +98,22 @@ class PreProcessor {
 
 class AsyncPreProcessJob : public util::SimpleThreadPool::Job {
  public:
-  AsyncPreProcessJob(PreProcessor &preProcessor, PreProcessRequestMsgSharedPtr msg, ReplicaId replicaId);
+  AsyncPreProcessJob(PreProcessor &preProcessor, ClientPreProcessReqMsgSharedPtr msg, char *replyBuffer);
   virtual ~AsyncPreProcessJob() = default;
+
+  void execute() override;
+  void release() override;
+
+ private:
+  PreProcessor &preProcessor_;
+  ClientPreProcessReqMsgSharedPtr msg_;
+  char *replyBuffer_ = nullptr;
+};
+
+class AsyncSendPreProcessJob : public util::SimpleThreadPool::Job {
+ public:
+  AsyncSendPreProcessJob(PreProcessor &preProcessor, PreProcessRequestMsgSharedPtr msg, ReplicaId replicaId);
+  virtual ~AsyncSendPreProcessJob() = default;
 
   void execute() override;
   void release() override;
