@@ -94,6 +94,7 @@ class PreProcessor {
   void handleClientPreProcessRequestByNonPrimary(ClientPreProcessReqMsgUniquePtr msg);
   void sendMsg(char *msg, NodeIdType dest, uint16_t msgType, MsgSize msgSize);
   void sendPreProcessRequestToAllReplicas(const PreProcessRequestMsgSharedPtr &preProcessReqMsg);
+  void resendPreProcessRequest(const RequestProcessingStateUniquePtr &clientReqStatePtr);
   uint16_t getClientReplyBufferId(uint16_t clientId) const { return clientId - numOfReplicas_; }
   const char *getPreProcessResultBuffer(uint16_t clientId) const;
   void launchAsyncReqPreProcessingJob(const PreProcessRequestMsgSharedPtr &preProcessReqMsg,
