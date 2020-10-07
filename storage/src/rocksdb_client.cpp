@@ -109,7 +109,7 @@ void Client::init(bool readOnly) {
   options.max_background_flushes = 2;
   options.max_background_compactions = 48;
   options.max_subcompactions = 48;
-  options.level0_file_num_compaction_trigger = 1;
+  options.level0_file_num_compaction_trigger = 0;
   options.level0_slowdown_writes_trigger = 48;
   options.level0_stop_writes_trigger = 56;
   options.bytes_per_sync = 1024 * 2048;
@@ -121,27 +121,34 @@ void Client::init(bool readOnly) {
   // Note that if we recover, then rocksdb should have its option configuration file stored in the rocksdb directory.
   // Thus, we don't need to persist our custom configuration file.
   auto s_opt = ::rocksdb::LoadLatestOptions(m_dbPath, ::rocksdb::Env::Default(), &options, &cf_descs);
-  if (!s_opt.ok()) {
-    const char kPathSeparator =
+  const char kPathSeparator =
 #ifdef _WIN32
-        '\\';
+      '\\';
 #else
-        '/';
+      '/';
 #endif
+  const std::string configFileName = m_dbPath + kPathSeparator + default_opt_config_name;
+  if (!s_opt.ok()) {
     // If we couldn't read the stored configuration file, try to read the default configuration file.
-    s_opt = ::rocksdb::LoadOptionsFromFile(
-        m_dbPath + kPathSeparator + default_opt_config_name, ::rocksdb::Env::Default(), &options, &cf_descs);
+    LOG_INFO(logger(),
+             "Failed to read from the stored configuration file, try to read the default configuration file: "
+                 << configFileName);
+    s_opt = ::rocksdb::LoadOptionsFromFile(configFileName, ::rocksdb::Env::Default(), &options, &cf_descs);
   }
   if (!s_opt.ok()) {
-    // If we couldn't read the stored configuration and not the default configuration file, then create
-    // one.
+    // If we couldn't read the stored configuration and not the default configuration file, then create one.
     options.create_if_missing = true;
   }
   options.sst_file_manager.reset(::rocksdb::NewSstFileManager(::rocksdb::Env::Default()));
   options.statistics = ::rocksdb::CreateDBStatistics();
   options.statistics->set_stats_level(::rocksdb::StatsLevel::kExceptHistogramOrTimers);
 
-  options.write_buffer_size = 512 << 20;  // set default memtable size to 512mb to improve perf
+  LOG_INFO(logger(),
+           KVLOG(configFileName,
+                 options.write_buffer_size,
+                 options.unordered_write,
+                 options.two_write_queues,
+                 options.level0_file_num_compaction_trigger));
 
   // If a comparator is passed, use it. If not, use the default one.
   if (comparator_) {
@@ -150,15 +157,19 @@ void Client::init(bool readOnly) {
   ::rocksdb::Status s;
   if (readOnly) {
     s = ::rocksdb::DB::OpenForReadOnly(options, m_dbPath, &db);
-    if (!s.ok())
+    if (!s.ok()) {
+      LOG_FATAL(logger(), "Failed to open rocksdb database: " << s.ToString());
       throw std::runtime_error("Failed to open rocksdb database at " + m_dbPath + std::string(" reason: ") +
                                s.ToString());
+    }
     dbInstance_.reset(db);
   } else {
     s = ::rocksdb::TransactionDB::Open(options, txn_options, m_dbPath, &txn_db_);
-    if (!s.ok())
+    if (!s.ok()) {
+      LOG_FATAL(logger(), "Failed to open rocksdb database: " << s.ToString());
       throw std::runtime_error("Failed to open rocksdb database at " + m_dbPath + std::string(" reason: ") +
                                s.ToString());
+    }
     dbInstance_.reset(txn_db_->GetBaseDB());
   }
   storage_metrics_.setMetricsDataSources(options.sst_file_manager, options.statistics);
