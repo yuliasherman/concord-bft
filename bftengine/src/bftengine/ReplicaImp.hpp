@@ -471,11 +471,39 @@ class ReplicaImp : public InternalReplicaApi, public ReplicaForStateTransfer {
         std::make_shared<Recorder>(1, MAX_VALUE_NANOSECONDS, 3, concord::diagnostics::Unit::NANOSECONDS);
     std::shared_ptr<Recorder> onTransferringCompleteImp =
         std::make_shared<Recorder>(1, MAX_VALUE_NANOSECONDS, 3, concord::diagnostics::Unit::NANOSECONDS);
+    std::shared_ptr<Recorder> consensus =
+        std::make_shared<Recorder>(1, MAX_VALUE_MICROSECONDS, 3, concord::diagnostics::Unit::MICROSECONDS);
+  };
+
+  class TimesCollector {
+   public:
+    struct Times {
+      Times() : startTime(std::chrono::steady_clock::now()) {}
+      std::chrono::steady_clock::time_point startTime;
+      std::chrono::microseconds duration = std::chrono::microseconds(0);
+    };
+    void begin(SeqNum seqNum) { timesMap_.insert(std::pair<SeqNum, Times>(seqNum, Times())); }
+    void end(SeqNum seqNum) {
+      auto const& it = timesMap_.find(seqNum);
+      if (it != timesMap_.end())
+        it->second.duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() -
+                                                                                    it->second.startTime);
+      if (timesMap_.size() % 2000 == 0) {
+        uint64_t duration = 0;
+        for (auto const& elem : timesMap_) duration += elem.second.duration.count();
+        uint64_t average = duration / timesMap_.size();
+        LOG_INFO(GL, KVLOG(duration, timesMap_.size(), average) << " micro");
+      }
+    }
+
+   private:
+    std::map<SeqNum, Times> timesMap_;
   };
 
   Recorders histograms_;
   batchingLogic::RequestsBatchingLogic reqBatchingLogic_;
   ReplicaStatusHandlers replStatusHandlers_;
+  TimesCollector consensusTimesCollector_;
 };
 
 }  // namespace bftEngine::impl

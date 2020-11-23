@@ -62,6 +62,14 @@ PrePrepareMsg *RequestsBatchingLogic::batchRequestsSelfAdjustedPolicy(SeqNum pri
     if (minBatchSize > maxInitialBatchSize_) minBatchSize = maxInitialBatchSize_;
   }
 
+  LOG_INFO(GL,
+           KVLOG(requestsInQueue,
+                 maxNumberOfPendingRequestsInRecentHistory_,
+                 minBatchSize,
+                 concurrentDiff,
+                 batchingFactor_,
+                 batchingFactorCoefficient_));
+
   if (requestsInQueue < minBatchSize) {
     LOG_INFO(GL, "Not enough client requests in the queue to fill the batch" << KVLOG(minBatchSize, requestsInQueue));
     metric_not_enough_client_requests_event_.Get().Inc();
@@ -69,11 +77,10 @@ PrePrepareMsg *RequestsBatchingLogic::batchRequestsSelfAdjustedPolicy(SeqNum pri
   }
 
   // Update batching factor
-  if (((primaryLastUsedSeqNum + 1) % kWorkWindowSize) == 0) {
+  if (((primaryLastUsedSeqNum + 1) % (kWorkWindowSize * 2)) == 0) {
     batchingFactor_ = maxNumberOfPendingRequestsInRecentHistory_ / batchingFactorCoefficient_;
     if (batchingFactor_ < 1) batchingFactor_ = 1;
     maxNumberOfPendingRequestsInRecentHistory_ = 0;
-    LOG_DEBUG(GL, "PrePrepare batching factor updated" << KVLOG(batchingFactor_));
   }
 
   return replica_.buildPrePrepareMessage();

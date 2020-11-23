@@ -345,9 +345,9 @@ bool ReplicaImp::tryToSendPrePrepareMsgBatchByOverallSize(uint32_t requiredBatch
 
 bool ReplicaImp::tryToSendPrePrepareMsgBatchByRequestsNum(uint32_t requiredRequestsNum) {
   if (requestsQueueOfPrimary.size() < requiredRequestsNum) {
-    LOG_INFO(GL,
-             "Not enough messages in the primary replica queue to fill a batch"
-                 << KVLOG(requestsQueueOfPrimary.size(), requiredRequestsNum));
+    LOG_DEBUG(GL,
+              "Not enough messages in the primary replica queue to fill a batch"
+                  << KVLOG(requestsQueueOfPrimary.size(), requiredRequestsNum));
     return false;
   }
   if (!checkSendPrePrepareMsgPrerequisites()) return false;
@@ -424,13 +424,13 @@ PrePrepareMsg *ReplicaImp::finishAddingRequestsToPrePrepareMsg(PrePrepareMsg *&p
     return nullptr;
   }
   prePrepareMsg->finishAddingRequests();
-  LOG_DEBUG(GL,
-            KVLOG(prePrepareMsg->seqNumber(),
-                  maxSpaceForReqs,
-                  requiredRequestsSize,
-                  prePrepareMsg->requestsSize(),
-                  requiredRequestsNum,
-                  prePrepareMsg->numberOfRequests()));
+  LOG_INFO(GL,
+           KVLOG(prePrepareMsg->seqNumber(),
+                 prePrepareMsg->numberOfRequests(),
+                 maxSpaceForReqs,
+                 requiredRequestsSize,
+                 prePrepareMsg->requestsSize(),
+                 requiredRequestsNum));
   return prePrepareMsg;
 }
 
@@ -486,6 +486,8 @@ void ReplicaImp::startConsensusProcess(PrePrepareMsg *pp, bool isInternalNoop) {
     DebugStatistics::onSendPrePrepareMessage(pp->numberOfRequests(), requestsQueueOfPrimary.size());
   }
   primaryLastUsedSeqNum++;
+  if (isCurrentPrimary()) consensusTimesCollector_.begin(primaryLastUsedSeqNum);
+
   metric_primary_last_used_seq_num_.Get().Set(primaryLastUsedSeqNum);
   SCOPED_MDC_SEQ_NUM(std::to_string(primaryLastUsedSeqNum));
   SCOPED_MDC_PATH(CommitPathToMDCString(firstPath));
@@ -2677,9 +2679,10 @@ void ReplicaImp::onSeqNumIsStable(SeqNum newStableSeqNum, bool hasStateInformati
 
   if (ps_) ps_->endWriteTran();
 
-  if (!oldSeqNum && currentViewIsActive() && (currentPrimary() == config_.getreplicaId()) && !isCollectingState()) {
-    tryToSendPrePrepareMsg();
-  }
+  //  if (!oldSeqNum && currentViewIsActive() && (currentPrimary() == config_.getreplicaId()) && !isCollectingState() &&
+  //      ((newStableSeqNum % kWorkWindowSize) == 0)) {
+  //    tryToSendPrePrepareMsg();
+  //  }
 
   auto seq_num_to_stop_at = controlStateManager_->getCheckpointToStopAt();
 
@@ -3666,6 +3669,7 @@ void ReplicaImp::executeReadOnlyRequest(concordUtils::SpanWrapper &parent_span, 
 void ReplicaImp::executeRequestsInPrePrepareMsg(concordUtils::SpanWrapper &parent_span,
                                                 PrePrepareMsg *ppMsg,
                                                 bool recoverFromErrorInRequestsExecution) {
+  if (isCurrentPrimary()) consensusTimesCollector_.end(primaryLastUsedSeqNum);
   TimeRecorder scoped_timer(*histograms_.executeRequestsInPrePrepareMsg);
   auto span = concordUtils::startChildSpan("bft_execute_requests_in_preprepare", parent_span);
   ConcordAssertAND(!isCollectingState(), currentViewIsActive());
