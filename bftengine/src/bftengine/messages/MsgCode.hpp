@@ -41,10 +41,12 @@ class MsgCode {
     ReplicaAsksToLeaveView,
 
     ClientPreProcessRequest = 500,
+    ClientPreProcessBatchRequest = 600,
     PreProcessRequest,
     PreProcessReply,
 
     ClientRequest = 700,
+    ClientBatchRequest = 750,
     ClientReply = 800,
 
   };
