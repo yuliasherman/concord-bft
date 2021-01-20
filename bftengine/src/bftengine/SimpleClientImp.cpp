@@ -15,6 +15,7 @@
 #include <mutex>
 #include <cmath>
 #include <condition_variable>
+#include <utility>
 
 #include "ClientMsgs.hpp"
 #include "OpenTracing.hpp"
@@ -100,7 +101,7 @@ class SimpleClientImp : public SimpleClient, public IReceiver {
 
   // SeqNumber -> MsgsCertificate
   typedef MsgsCertificate<ClientReplyMsg, false, false, true, SimpleClientImp> Certificate;
-  std::unordered_map<uint64_t, Certificate> replysCertificate_;
+  std::unordered_map<uint64_t, std::unique_ptr<Certificate>> replysCertificate_;
 
   std::mutex lock_;  // protects _msgQueue and pendingRequest
   std::condition_variable condVar_;
@@ -160,11 +161,13 @@ void SimpleClientImp::onMessageFromReplica(MessageBase* msg) {
     return;
   }
 
-  Certificate msgsCertificate(numberOfReplicas_, fVal_, numberOfRequiredReplicas_, clientId_);
-  msgsCertificate.addMsg(replyMsg, replyMsg->senderId());
-  replysCertificate_.insert(pair<uint64_t, Certificate>(replyMsg->reqSeqNum(), msgsCertificate));
-  auto elem = replysCertificate_.find(replyMsg->reqSeqNum());
-  if (elem->second.isInconsistent()) elem->second.resetAndFree();
+  auto iter = replysCertificate_.find(replyMsg->reqSeqNum());
+  if (iter == std::cend(replysCertificate_)) {
+    auto cert = std::make_unique<Certificate>(numberOfReplicas_, fVal_, numberOfRequiredReplicas_, clientId_);
+    iter = replysCertificate_.insert(std::make_pair(replyMsg->reqSeqNum(), std::move(cert))).first;
+  }
+  iter->second->addMsg(replyMsg, replyMsg->senderId());
+  if (iter->second->isInconsistent()) iter->second->resetAndFree();
 }
 
 void SimpleClientImp::onRetransmission(const std::string& cid) {
@@ -214,8 +217,11 @@ SimpleClientImp::SimpleClientImp(
 SimpleClientImp::~SimpleClientImp() {}
 
 bool SimpleClientImp::allRequiredRepliesReceived() {
+  if (replysCertificate_.empty()) {
+    return false;
+  }
   for (auto& elem : replysCertificate_) {
-    if (!elem.second.isComplete()) return false;
+    if (!elem.second->isComplete()) return false;
   }
   return true;
 }
@@ -325,7 +331,7 @@ OperationResult SimpleClientImp::sendRequest(uint8_t flags,
                   clientId_, reqSeqNum, isReadOnly, isPreProcessRequired, (int)maxRetransmissionTimeout));
 
     const auto& elem = replysCertificate_.find(reqSeqNum);
-    ClientReplyMsg* correctReply = elem->second.bestCorrectMsg();
+    ClientReplyMsg* correctReply = elem->second->bestCorrectMsg();
     primaryReplicaIsKnown_ = true;
     knownPrimaryReplica_ = correctReply->currentPrimaryId();
     OperationResult res = SUCCESS;
@@ -442,7 +448,7 @@ OperationResult SimpleClientImp::sendBatch(const deque<ClientRequest>& clientReq
     uint64_t durationMilli = duration_cast<milliseconds>(getMonotonicTime() - beginTime).count();
     limitOfExpectedOperationTime_.add(durationMilli);
     for (auto& reply : replysCertificate_) {
-      ClientReplyMsg* correctReply = reply.second.bestCorrectMsg();
+      ClientReplyMsg* correctReply = reply.second->bestCorrectMsg();
       const auto reqSeqNum = correctReply->reqSeqNum();
       LOG_DEBUG(logger_, KVLOG(clientId_, reqSeqNum) << " has committed");
       primaryReplicaIsKnown_ = true;
@@ -471,7 +477,7 @@ OperationResult SimpleClientImp::sendBatch(const deque<ClientRequest>& clientReq
 }
 
 void SimpleClientImp::reset() {
-  for (auto& elem : replysCertificate_) elem.second.resetAndFree();
+  for (auto& elem : replysCertificate_) elem.second->resetAndFree();
   replysCertificate_.clear();
 
   std::queue<MessageBase*> newMsgs;
@@ -552,7 +558,7 @@ void SimpleClientImp::sendPendingRequest(const std::string& cid) {
                         << ", sendToAll=" << sendToAll);
 
   if (resetReplies) {
-    for (auto& elem : replysCertificate_) elem.second.resetAndFree();
+    for (auto& elem : replysCertificate_) elem.second->resetAndFree();
     replysCertificate_.clear();
   }
 
