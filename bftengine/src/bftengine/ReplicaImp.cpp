@@ -120,8 +120,8 @@ template <class T>
 void onMessage(T *);
 
 void ReplicaImp::send(MessageBase *m, NodeIdType dest) {
-  if (clientsManager->isInternal(dest)) {
-    LOG_DEBUG(GL, "Not sending reply to internal client id - " << dest);
+  if (clientsManager->isInternalCustomer(dest)) {
+    LOG_DEBUG(GL, "Not sending reply to internal customer id - " << dest);
     return;
   }
   // debug code begin
@@ -3562,13 +3562,16 @@ ReplicaImp::ReplicaImp(bool firstTime,
                              config_.getnumOfExternalClients();
   for (uint16_t i = config_.getnumReplicas() + config_.getnumRoReplicas(); i < numOfEntities; i++) clientsSet.insert(i);
   clientsManager = new ClientsManager(clientsSet);
-  clientsManager->initInternalClientInfo(config_.getnumReplicas());
-  internalBFTClient_.reset(new InternalBFTClient(
-      config_.getreplicaId(), clientsManager->getHighestIdOfNonInternalClient(), msgsCommunicator_));
+  clientsManager->initInternalCustomerInfo(config_.getnumReplicas());
+  internalBFTCustomer_.reset(
+      new InternalBFTCustomer(config_.getreplicaId(), clientsManager->getHighestClientId(), msgsCommunicator_));
 
   ClientsManager::setNumResPages(
-      (config.numOfClientProxies + config.numOfExternalClients + config.numReplicas) *
-      ClientsManager::reservedPagesPerClient(config.getsizeOfReservedPage(), config.maxReplyMessageSize));
+      (config.numOfClientProxies + config.numReplicas) *
+          ClientsManager::reservedPagesPerClient(config.getsizeOfReservedPage(), config.maxReplyMessageSize, 1) +
+      config.numOfExternalClients * ClientsManager::reservedPagesPerClient(config.getsizeOfReservedPage(),
+                                                                           config.maxReplyMessageSize,
+                                                                           config.maxNumOfRequestsInBatch));
   ClusterKeyStore::setNumResPages(config.numReplicas);
 
   clientsManager->init(stateTransfer.get());
@@ -3692,7 +3695,7 @@ void ReplicaImp::start() {
   std::shared_ptr<ISecureStore> backupsec(
       new KeyManager::FileSecureStore(ReplicaConfig::instance().getkeyViewFilePath(), config_.replicaId, "_backed"));
   KeyManager::InitData id{};
-  id.cl = internalBFTClient_;
+  id.cl = internalBFTCustomer_;
   id.id = config_.getreplicaId();
   id.clusterSize = config_.getnumReplicas();
   id.reservedPages = stateTransfer.get();

@@ -18,46 +18,49 @@ using namespace std;
 using namespace bftEngine;
 
 TEST(ClientsManager, reservedPagesPerClient) {
-  uint32_t sizeOfReservedPage = 1024;
-  uint32_t maxReplysize = 1000;
-  auto numPagesPerCl = bftEngine::impl::ClientsManager::reservedPagesPerClient(sizeOfReservedPage, maxReplysize);
-  ASSERT_EQ(numPagesPerCl, 1);
-  maxReplysize = 3000;
-  numPagesPerCl = bftEngine::impl::ClientsManager::reservedPagesPerClient(sizeOfReservedPage, maxReplysize);
-  ASSERT_EQ(numPagesPerCl, 3);
-  maxReplysize = 1024;
-  numPagesPerCl = bftEngine::impl::ClientsManager::reservedPagesPerClient(sizeOfReservedPage, maxReplysize);
-  ASSERT_EQ(numPagesPerCl, 1);
+  const uint32_t sizeOfReservedPage = 1024;
+  const uint16_t maxBatchSize = 5;
+  uint32_t maxReplySize = 1000;
+  auto numPagesPerCl =
+      bftEngine::impl::ClientsManager::reservedPagesPerClient(sizeOfReservedPage, maxReplySize, maxBatchSize);
+  ASSERT_EQ(numPagesPerCl, 5);
+  maxReplySize = 3000;
+  numPagesPerCl =
+      bftEngine::impl::ClientsManager::reservedPagesPerClient(sizeOfReservedPage, maxReplySize, maxBatchSize);
+  ASSERT_EQ(numPagesPerCl, 15);
+  maxReplySize = 1024;
+  numPagesPerCl =
+      bftEngine::impl::ClientsManager::reservedPagesPerClient(sizeOfReservedPage, maxReplySize, maxBatchSize);
+  ASSERT_EQ(numPagesPerCl, 5);
 }
 
 TEST(ClientsManager, constructor) {
   std::set<bftEngine::impl::NodeIdType> clset{1, 4, 50, 7};
   bftEngine::impl::ClientsManager cm{clset};
-  ASSERT_EQ(50, cm.getHighestIdOfNonInternalClient());
+  ASSERT_EQ(50, cm.getHighestClientId());
   auto i = 0;
   for (auto id : clset) {
     ASSERT_EQ(i, cm.getIndexOfClient(id));
-    ASSERT_EQ(false, cm.isInternal(id));
+    ASSERT_EQ(false, cm.isInternalCustomer(id));
     ++i;
   }
 }
 
-// Test that interanl clients are added to Client manager data structures
-// and are identifed as internal clients
-TEST(ClientsManager, initInternalClientInfo) {
+// Test that replicas are added to Client manager data structures and are identified correctly
+TEST(ClientsManager, initClientInfo) {
   std::set<bftEngine::impl::NodeIdType> clset{1, 4, 50, 7};
   bftEngine::impl::ClientsManager cm{clset};
-  auto firstIntClId = cm.getHighestIdOfNonInternalClient() + 1;
-  auto FirstIntIdx = cm.getIndexOfClient(cm.getHighestIdOfNonInternalClient()) + 1;
+  auto firstReplicaId = cm.getHighestClientId() + 1;
+  auto firstIntIdx = cm.getIndexOfClient(cm.getHighestClientId()) + 1;
   auto numRep = 7;
-  cm.initInternalClientInfo(numRep);
+  cm.initInternalCustomerInfo(numRep);
   for (int i = 0; i < numRep; i++) {
-    ASSERT_EQ(true, cm.isValidClient(firstIntClId + i));
-    ASSERT_EQ(true, cm.isInternal(firstIntClId + 1));
-    ASSERT_EQ(FirstIntIdx + i, cm.getIndexOfClient(firstIntClId + i));
+    ASSERT_EQ(true, cm.isValidClient(firstReplicaId + i));
+    ASSERT_EQ(true, cm.isInternalCustomer(firstReplicaId + 1));
+    ASSERT_EQ(firstIntIdx + i, cm.getIndexOfClient(firstReplicaId + i));
   }
   // One over the end
-  ASSERT_EQ(false, cm.isValidClient(firstIntClId + numRep));
+  ASSERT_EQ(false, cm.isValidClient(firstReplicaId + numRep));
 }
 
 int main(int argc, char **argv) {

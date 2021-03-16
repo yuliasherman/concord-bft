@@ -31,7 +31,7 @@
 #include "Bitmap.hpp"
 #include "OpenTracing.hpp"
 #include "RequestHandler.h"
-#include "InternalBFTClient.hpp"
+#include "InternalBFTCustomer.hpp"
 #include "diagnostics.h"
 #include "performance_handler.h"
 #include "RequestsBatchingLogic.hpp"
@@ -125,7 +125,7 @@ class ReplicaImp : public InternalReplicaApi, public ReplicaForStateTransfer {
 
   // managing information about the clients
   ClientsManager* clientsManager = nullptr;
-  std::shared_ptr<InternalBFTClient> internalBFTClient_;
+  std::shared_ptr<InternalBFTCustomer> internalBFTCustomer_;
 
   size_t numInvalidClients = 0;
   size_t numValidNoOps = 0;

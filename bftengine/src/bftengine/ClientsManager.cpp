@@ -27,47 +27,48 @@ ClientsManager::ClientsManager(std::set<NodeIdType>& clientsSet)
       maxReplySize_(ReplicaConfig::instance().getmaxReplyMessageSize()),
       maxNumOfReqsPerClient_(
           ReplicaConfig::instance().clientBatchingEnabled ? ReplicaConfig::instance().clientBatchingMaxMsgsNbr : 1) {
-  ConcordAssert(clientsSet.size() >= 1);
+  numOfClients_ = clientsSet.size();
+  ConcordAssert(numOfClients_ >= 1);
   scratchPage_ = (char*)std::malloc(sizeOfReservedPage_);
   memset(scratchPage_, 0, sizeOfReservedPage_);
 
   uint16_t idx = 0;
   for (NodeIdType c : clientsSet) {
     clientIdToIndex_.insert(std::pair<NodeIdType, uint16_t>(c, idx));
-    highestIdOfNonInternalClient_ = c;
+    highestClientId_ = c;
     indexToClientInfo_.push_back(ClientInfo());
     idx++;
   }
-  reservedPagesPerClient_ = reservedPagesPerClient(sizeOfReservedPage_, maxReplySize_);
-  numOfClients_ = (uint16_t)clientsSet.size();
-  requiredNumberOfPages_ = (numOfClients_ * reservedPagesPerClient_);
-  LOG_DEBUG(GL, KVLOG(sizeOfReservedPage_, reservedPagesPerClient_, maxReplySize_, maxNumOfReqsPerClient_));
+  reservedPagesPerClient_ = reservedPagesPerClient(sizeOfReservedPage_, maxReplySize_, maxNumOfReqsPerClient_);
+  requiredNumberOfPages_ = numOfClients_ * reservedPagesPerClient_;
+  LOG_DEBUG(GL,
+            KVLOG(numOfClients_, maxNumOfReqsPerClient_, sizeOfReservedPage_, reservedPagesPerClient_, maxReplySize_));
 }
 
-uint32_t ClientsManager::reservedPagesPerClient(const uint32_t& sizeOfReservedPage, const uint32_t& maxReplySize) {
-  uint32_t reservedPagesPerClient = maxReplySize / sizeOfReservedPage;
-  if (maxReplySize % sizeOfReservedPage != 0) {
-    reservedPagesPerClient++;
-  }
-  return reservedPagesPerClient;
+uint32_t ClientsManager::reservedPagesPerClient(uint32_t sizeOfReservedPage,
+                                                uint32_t maxReplySize,
+                                                uint16_t maxNumOfReqsPerClient) {
+  const uint32_t complement = (maxReplySize % sizeOfReservedPage == 0) ? 0 : 1;
+  const uint32_t quotient = maxReplySize / sizeOfReservedPage;
+  return quotient ? ((quotient + complement) * maxNumOfReqsPerClient) : maxNumOfReqsPerClient;
 }
 
-// Internal bft clients will be located after all other clients.
-void ClientsManager::initInternalClientInfo(const int& numReplicas) {
+// Replica's info will be located after client's info.
+void ClientsManager::initInternalCustomerInfo(const int& numReplicas) {
   indexToClientInfo_.resize(indexToClientInfo_.size() + numReplicas);
   requiredNumberOfPages_ += requiredNumberOfPages_ * numReplicas;
-  auto currClId = highestIdOfNonInternalClient_;
-  auto currIdx = clientIdToIndex_[highestIdOfNonInternalClient_];
+  auto currClId = highestClientId_;
+  auto currIdx = clientIdToIndex_[highestClientId_];
   for (int i = 0; i < numReplicas; i++) {
     clientIdToIndex_.insert(std::pair<NodeIdType, uint16_t>(++currClId, ++currIdx));
     indexToClientInfo_.push_back(ClientInfo());
     LOG_DEBUG(GL,
-              "Adding internal client, id [" << currClId << "] as index [" << currIdx << "] vector size "
-                                             << indexToClientInfo_.size());
+              "Adding internal customer, id [" << currClId << "] as index [" << currIdx << "] vector size "
+                                               << indexToClientInfo_.size());
   }
 }
 
-NodeIdType ClientsManager::getHighestIdOfNonInternalClient() { return highestIdOfNonInternalClient_; }
+NodeIdType ClientsManager::getHighestClientId() { return highestClientId_; }
 
 int ClientsManager::getIndexOfClient(const NodeIdType& id) const {
   if (clientIdToIndex_.find(id) == clientIdToIndex_.end()) return -1;

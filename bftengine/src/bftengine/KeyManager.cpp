@@ -224,7 +224,7 @@ void KeyManager::sendKeyExchange() {
   std::stringstream ss;
   concord::serialize::Serializable::serialize(ss, msg);
   auto strMsg = ss.str();
-  client_->sendRquest(bftEngine::KEY_EXCHANGE_FLAG, strMsg.size(), strMsg.c_str(), generateCid());
+  client_->sendRequest(bftEngine::KEY_EXCHANGE_FLAG, strMsg.size(), strMsg.c_str(), generateCid());
   keysView_.save();
   LOG_INFO(KEY_EX_LOG, "Sending key exchange msg, sleeping");
 }

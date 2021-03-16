@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "InternalBFTClient.hpp"
+#include "InternalBFTCustomer.hpp"
 #include "KeyStore.h"
 #include "bftengine/IKeyExchanger.hpp"
 #include "Timers.hpp"
@@ -98,7 +98,7 @@ class KeyManager {
   std::future<void> futureRet;
 
   struct InitData {
-    std::shared_ptr<IInternalBFTClient> cl;
+    std::shared_ptr<IInternalBFTCustomer> cl;
     int id{};
     uint32_t clusterSize{};
     IReservedPages* reservedPages{nullptr};
@@ -130,7 +130,7 @@ class KeyManager {
   uint32_t clusterSize_{};
   std::string generateCid();
   // Raw pointer is ok, since this class does not manage this resource.
-  std::shared_ptr<IInternalBFTClient> client_;
+  std::shared_ptr<IInternalBFTCustomer> client_;
 
   std::vector<IKeyExchanger*> registryToExchange_;
   ClusterKeyStore keyStore_;

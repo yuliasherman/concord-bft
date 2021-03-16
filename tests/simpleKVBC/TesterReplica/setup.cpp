@@ -45,6 +45,7 @@ std::unique_ptr<TestSetup> TestSetup::ParseArgs(int argc, char** argv) {
     replicaConfig.statusReportTimerMillisec = 10 * 1000;
     replicaConfig.preExecutionFeatureEnabled = true;
     replicaConfig.clientBatchingEnabled = true;
+    replicaConfig.maxNumOfReservedPages = 6022;
     replicaConfig.set("sourceReplicaReplacementTimeoutMilli", 6000);
     const auto persistMode = PersistencyMode::RocksDB;
     std::string keysFilePrefix;

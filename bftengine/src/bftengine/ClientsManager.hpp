@@ -66,15 +66,17 @@ class ClientsManager : public ResPagesClient<ClientsManager, 0> {
 
   void deleteOldestReply(NodeIdType clientId);
 
-  // Internal Clients
-  void initInternalClientInfo(const int& numReplicas);
-  inline bool isInternal(NodeIdType clientId) const { return clientId > highestIdOfNonInternalClient_; };
+  // Internal customers
+  void initInternalCustomerInfo(const int& numReplicas);
+  inline bool isInternalCustomer(NodeIdType clientId) const { return clientId > highestClientId_; };
 
-  // Returns the ID of the last client before internal clients.
-  NodeIdType getHighestIdOfNonInternalClient();
+  // Returns the ID of the last client before internal customers.
+  NodeIdType getHighestClientId();
 
   // General
-  static uint32_t reservedPagesPerClient(const uint32_t& sizeOfReservedPage, const uint32_t& maxReplySize);
+  static uint32_t reservedPagesPerClient(uint32_t sizeOfReservedPage,
+                                         uint32_t maxReplySize,
+                                         uint16_t maxNumOfReqsPerClient);
   int getIndexOfClient(const NodeIdType& id) const;
 
  protected:
@@ -89,7 +91,7 @@ class ClientsManager : public ResPagesClient<ClientsManager, 0> {
   uint32_t requiredNumberOfPages_;
 
   uint16_t numOfClients_{0};
-  NodeIdType highestIdOfNonInternalClient_{0};
+  NodeIdType highestClientId_{0};
 
   std::map<NodeIdType, uint16_t> clientIdToIndex_;
 

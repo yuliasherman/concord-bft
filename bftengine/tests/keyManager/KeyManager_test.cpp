@@ -349,16 +349,16 @@ TEST(ClusterKeyStore, rotate) {
   ASSERT_EQ(cks.rotate(2).empty(), false);
 }
 
-struct DummyClient : public IInternalBFTClient {
+struct DummyClient : public IInternalBFTCustomer {
   inline NodeIdType getClientId() const { return 1; };
-  void sendRquest(uint8_t flags, uint32_t requestLength, const char* request, const std::string& cid) {}
+  void sendRequest(uint8_t flags, uint32_t requestLength, const char* request, const std::string& cid) {}
   uint32_t numOfConnectedReplicas(uint32_t clusterSize) { return clusterSize; }
   bool isUdp() { return false; }
 };
 
 TEST(KeyManager, initialKeyExchange) {
   uint32_t clusterSize = 4;
-  std::shared_ptr<IInternalBFTClient> dc(new DummyClient());
+  std::shared_ptr<IInternalBFTCustomer> dc(new DummyClient());
   DummyKeyGen dkg{clusterSize};
   dkg.prv = "private";
   dkg.pub = "public";
@@ -419,7 +419,7 @@ TEST(KeyManager, initialKeyExchange) {
 
 TEST(KeyManager, endToEnd) {
   uint32_t clustersize{4};
-  std::shared_ptr<IInternalBFTClient> dc(new DummyClient());
+  std::shared_ptr<IInternalBFTCustomer> dc(new DummyClient());
   DummyKeyGen dkg{clustersize};
   dkg.prv = "private";
   dkg.pub = "public";

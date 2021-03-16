@@ -41,8 +41,12 @@ ReadOnlyReplica::ReadOnlyReplica(const ReplicaConfig &config,
   metrics_.Register();
   // must be initialized although is not used by ReadOnlyReplica for proper behavior of StateTransfer
   ClientsManager::setNumResPages(
-      (config.numOfClientProxies + config.numOfExternalClients + config.numReplicas) *
-      ClientsManager::reservedPagesPerClient(config.sizeOfReservedPage, config.maxReplyMessageSize));
+      (config.numOfClientProxies + config.numReplicas) *
+          ClientsManager::reservedPagesPerClient(config.sizeOfReservedPage, config.maxReplyMessageSize, 1)
+
+      + config.numOfExternalClients * ClientsManager::reservedPagesPerClient(config.sizeOfReservedPage,
+                                                                             config.maxReplyMessageSize,
+                                                                             config.maxNumOfRequestsInBatch));
   ClusterKeyStore::setNumResPages(config.numReplicas);
 }
 

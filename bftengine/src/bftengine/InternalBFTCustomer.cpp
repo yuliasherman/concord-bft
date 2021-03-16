@@ -1,7 +1,7 @@
 
 // Concord
 //
-// Copyright (c) 2020 VMware, Inc. All Rights Reserved.
+// Copyright (c) 2020-2021 VMware, Inc. All Rights Reserved.
 //
 // This product is licensed to you under the Apache 2.0 license (the "License").  You may not use this product except in
 // compliance with the Apache 2.0 License.
@@ -10,17 +10,20 @@
 // these subcomponents is subject to the terms and conditions of the subcomponent's license, as noted in the LICENSE
 // file.
 
-#include "InternalBFTClient.hpp"
+#include "InternalBFTCustomer.hpp"
 #include "messages/ClientRequestMsg.hpp"
 #include "chrono"
 #include "Logger.hpp"
 
-InternalBFTClient::InternalBFTClient(const int& id,
-                                     const NodeIdType& nonInternalNum,
-                                     std::shared_ptr<MsgsCommunicator>& msgComm)
+InternalBFTCustomer::InternalBFTCustomer(const int& id,
+                                         const NodeIdType& nonInternalNum,
+                                         std::shared_ptr<MsgsCommunicator>& msgComm)
     : repID_(id), startIdForInternalClient_(nonInternalNum + 1), msgComm_(msgComm) {}
 
-void InternalBFTClient::sendRquest(uint8_t flags, uint32_t requestLength, const char* request, const std::string& cid) {
+void InternalBFTCustomer::sendRequest(uint8_t flags,
+                                      uint32_t requestLength,
+                                      const char* request,
+                                      const std::string& cid) {
   auto now = getMonotonicTime().time_since_epoch();
   auto now_ms = std::chrono::duration_cast<std::chrono::microseconds>(now);
   auto sn = now_ms.count();
