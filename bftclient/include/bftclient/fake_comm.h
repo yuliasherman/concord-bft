@@ -113,7 +113,9 @@ class FakeCommunication : public bft::communication::ICommunication {
   bool isRunning() const override { return true; }
   ConnectionStatus getCurrentConnectionStatus(NodeNum node) override { return ConnectionStatus{}; }
 
-  int send(NodeNum destNode, std::vector<uint8_t>&& msg) override {
+  int getAsyncMessageHeaderSize() const override { return 0; }
+
+  int send(NodeNum destNode, std::vector<uint8_t>&& msg, bool batch) override {
     runner_.send(MsgFromClient{ReplicaId{(uint16_t)destNode}, std::move(msg)});
     return 0;
   }

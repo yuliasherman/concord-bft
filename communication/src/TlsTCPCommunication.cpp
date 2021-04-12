@@ -39,10 +39,12 @@ ConnectionStatus TlsTCPCommunication::getCurrentConnectionStatus(const NodeNum n
   return impl_->getCurrentConnectionStatus(node);
 }
 
-int TlsTCPCommunication::send(NodeNum destNode, std::vector<uint8_t> &&msg) {
-  auto omsg = std::make_shared<OutgoingMsg>(std::move(msg));
+int TlsTCPCommunication::send(NodeNum destNode, std::vector<uint8_t> &&msg, bool batch) {
+  auto omsg = std::make_shared<OutgoingMsg>(std::move(msg), batch);
   return impl_->sendAsyncMessage(destNode, omsg);
 }
+
+int TlsTCPCommunication::getAsyncMessageHeaderSize() const { return MSG_HEADER_SIZE; }
 
 std::set<NodeNum> TlsTCPCommunication::send(std::set<NodeNum> dests, std::vector<uint8_t> &&msg) {
   std::set<NodeNum> failed_nodes;

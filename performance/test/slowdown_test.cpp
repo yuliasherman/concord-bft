@@ -43,7 +43,7 @@ class MockComm : public bft::communication::ICommunication {
 
   bool isRunning() const override { return true; }
 
-  int send(NodeNum destNode, std::vector<uint8_t>&& msg) override {
+  int send(NodeNum destNode, std::vector<uint8_t>&& msg, bool batch) override {
     (void)destNode;
     (void)msg;
     return 0;

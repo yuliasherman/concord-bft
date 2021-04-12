@@ -104,11 +104,12 @@ class PreProcessor {
   bool checkClientMsgCorrectness(
       uint64_t reqSeqNum, const std::string &cid, bool isReadOnly, uint16_t clientId, NodeIdType senderId) const;
   bool checkClientBatchMsgCorrectness(const ClientBatchRequestMsgUniquePtr &clientBatchReqMsg);
-  void handleClientPreProcessRequestByPrimary(PreProcessRequestMsgSharedPtr preProcessRequestMsg);
+  void handleClientPreProcessRequestByPrimary(PreProcessRequestMsgSharedPtr preProcessRequestMsg, bool arrivedInBatch);
   void registerAndHandleClientPreProcessReqOnNonPrimary(ClientPreProcessReqMsgUniquePtr clientReqMsg,
                                                         bool arrivedInBatch,
                                                         uint16_t reqOffsetInBatch);
-  void sendMsg(char *msg, NodeIdType dest, uint16_t msgType, MsgSize msgSize);
+  void sendMsg(char *msg, NodeIdType dest, uint16_t msgType, MsgSize msgSize, bool batch);
+  void sendBatchOfPreProcessRequestsToAllReplicas(const std::deque<PreProcessRequestMsgSharedPtr> &preProcessReqBatch);
   void sendPreProcessRequestToAllReplicas(const PreProcessRequestMsgSharedPtr &preProcessReqMsg);
   void resendPreProcessRequest(const RequestProcessingStateUniquePtr &reqStatePtr);
   void sendRejectPreProcessReplyMsg(NodeIdType clientId,
@@ -158,9 +159,9 @@ class PreProcessor {
   void addTimers();
   void cancelTimers();
   void onRequestsStatusCheckTimer();
-  void handleSingleClientRequestMessage(ClientPreProcessReqMsgUniquePtr clientMsg,
-                                        bool arrivedInBatch,
-                                        uint16_t msgOffsetInBatch);
+  PreProcessRequestMsgSharedPtr handleSingleClientRequestMessage(ClientPreProcessReqMsgUniquePtr clientMsg,
+                                                                 bool arrivedInBatch,
+                                                                 uint16_t msgOffsetInBatch);
   bool isRequestPreProcessingRightNow(const RequestStateSharedPtr &reqEntry,
                                       ReqId reqSeqNum,
                                       NodeIdType clientId,

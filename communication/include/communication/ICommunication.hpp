@@ -52,11 +52,13 @@ class ICommunication {
 
   virtual ConnectionStatus getCurrentConnectionStatus(NodeNum node) = 0;
 
+  virtual int getAsyncMessageHeaderSize() const = 0;
+
   // Sends a message on the underlying communication layer to a given
   // destination node. Asynchronous (non-blocking) method.
   // The function takes ownership of the buffer provided.
   // Returns 0 on success.
-  virtual int send(NodeNum destNode, std::vector<uint8_t>&& msg) = 0;
+  virtual int send(NodeNum destNode, std::vector<uint8_t>&& msg, bool batch = false) = 0;
 
   // Sends a message to all nodes in dests set.
   // The function takes ownership of the buffer provided.

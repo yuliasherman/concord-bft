@@ -49,8 +49,11 @@ void MsgsCommunicator::stopMsgsProcessing() {
   LOG_INFO(GL, "Messages processing for replica " << replicaId_ << " stopped");
 }
 
-int MsgsCommunicator::sendAsyncMessage(NodeNum destNode, char* message, size_t messageLength) {
-  return communication_->send(destNode, std::vector<uint8_t>(message, message + messageLength));
+int MsgsCommunicator::getAsyncMessageHeaderSize() const { return communication_->getAsyncMessageHeaderSize(); }
+
+int MsgsCommunicator::sendAsyncMessage(NodeNum destNode, char* message, size_t messageLength, bool batch) {
+  LOG_INFO(GL, KVLOG(replicaId_, destNode, messageLength, batch));
+  return communication_->send(destNode, std::vector<uint8_t>(message, message + messageLength), batch);
 }
 
 uint32_t MsgsCommunicator::numOfConnectedReplicas(uint32_t clusterSize) {

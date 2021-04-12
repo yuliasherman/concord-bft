@@ -36,25 +36,33 @@ static constexpr size_t MAX_QUEUE_SIZE_IN_BYTES = 1024 * 1024 * 1024;  // 1 GB
 static constexpr size_t MSG_HEADER_SIZE = 4;
 
 struct OutgoingMsg {
-  OutgoingMsg(std::vector<uint8_t>&& raw_msg)
-      : msg(raw_msg.size() + MSG_HEADER_SIZE), send_time(std::chrono::steady_clock::now()) {
-    uint32_t msg_size = htonl(static_cast<uint32_t>(raw_msg.size()));
-    std::memcpy(msg.data(), &msg_size, MSG_HEADER_SIZE);
-    std::memcpy(msg.data() + MSG_HEADER_SIZE, raw_msg.data(), raw_msg.size());
+  OutgoingMsg(std::vector<uint8_t>&& raw_msg, bool batch = false)
+      : batched(batch),
+        msg(batched ? raw_msg.size() : raw_msg.size() + MSG_HEADER_SIZE),
+        send_time(std::chrono::steady_clock::now()) {
+    if (batched)
+      std::memcpy(msg.data(), raw_msg.data(), raw_msg.size());
+    else {
+      uint32_t msg_size = htonl(static_cast<uint32_t>(raw_msg.size()));
+      std::memcpy(msg.data(), &msg_size, MSG_HEADER_SIZE);
+      std::memcpy(msg.data() + MSG_HEADER_SIZE, raw_msg.data(), raw_msg.size());
+    }
   }
+  bool batched;
   std::vector<uint8_t> msg;
   std::chrono::steady_clock::time_point send_time;
 
-  size_t payload_size() { return msg.size() - MSG_HEADER_SIZE; }
+  size_t payload_size() { return (batched ? msg.size() : msg.size() - MSG_HEADER_SIZE); }
+  size_t msg_size() { return msg.size(); }
+  bool is_batched() { return batched; }
 };
 
 // A write queue is a buffer of messages for a single socket. Messages should only be put on the
 // queue if there is an active connection associated with it. By separating the queue fom the
 // connection however, we can allow optimistic pushes and not have to worry about locking the map of
-// connnections. This increase concurrency as a lock is only held when a message is pushed or popped
-// on a queue for a single connection, rather than an additional lock across all conenctions.
-// Furthermore, we only have to hold the lock when a request is pushed or popped, which is very
-// short.
+// connections. This increase concurrency as a lock is only held when a message is pushed or popped
+// on a queue for a single connection, rather than an additional lock across all connections.
+// Furthermore, we only have to hold the lock when a request is pushed or popped, which is very short.
 class WriteQueue {
  public:
   WriteQueue(NodeNum destination, Recorders& recorders)

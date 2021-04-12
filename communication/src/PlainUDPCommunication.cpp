@@ -263,7 +263,7 @@ class PlainUDPCommunication::PlainUdpImpl {
       /** -1 return value means underlying socket error. */
       LOG_INFO(_logger, "Error while sending: " << concordUtils::errnoString(errno));
     } else if (error < (ssize_t)msg->size()) {
-      /** Mesage was partially sent. Unclear why this would happen, perhaps
+      /** Message was partially sent. Unclear why this would happen, perhaps
        * due to oversized messages (?). */
       LOG_INFO(_logger, "Sent %d out of %d bytes!");
     }
@@ -372,6 +372,8 @@ class PlainUDPCommunication::PlainUdpImpl {
   }
 };
 
+int PlainUDPCommunication::getAsyncMessageHeaderSize() const { return 0; }
+
 PlainUDPCommunication::~PlainUDPCommunication() {
   if (_ptrImpl) delete _ptrImpl;
 }
@@ -399,7 +401,7 @@ ConnectionStatus PlainUDPCommunication::getCurrentConnectionStatus(NodeNum node)
   return _ptrImpl->getCurrentConnectionStatus(node);
 }
 
-int PlainUDPCommunication::send(NodeNum destNode, std::vector<uint8_t> &&msg) {
+int PlainUDPCommunication::send(NodeNum destNode, std::vector<uint8_t> &&msg, bool batch) {
   auto m = std::make_shared<std::vector<uint8_t>>(std::move(msg));
   return _ptrImpl->sendAsyncMessage(destNode, m);
 }

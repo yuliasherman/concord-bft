@@ -64,6 +64,8 @@ enum MessageType : uint16_t { Reserved = 0, Hello, Regular };
 
 enum ConnType : uint8_t { Incoming, Outgoing };
 
+int PlainTCPCommunication::getAsyncMessageHeaderSize() const { return LENGTH_FIELD_SIZE + MSGTYPE_FIELD_SIZE; }
+
 /** this class will handle single connection using boost::make_shared idiom
  * will receive the IReceiver as a parameter and call it when new message
  * is available
@@ -850,7 +852,7 @@ ConnectionStatus PlainTCPCommunication::getCurrentConnectionStatus(const NodeNum
   return _ptrImpl->getCurrentConnectionStatus(node);
 }
 
-int PlainTCPCommunication::send(NodeNum destNode, std::vector<uint8_t> &&msg) {
+int PlainTCPCommunication::send(NodeNum destNode, std::vector<uint8_t> &&msg, bool batch) {
   return _ptrImpl->sendAsyncMessage(destNode, (char *)msg.data(), msg.size());
 }
 

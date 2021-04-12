@@ -136,6 +136,7 @@ void TlsTCPCommunication::TlsTcpImpl::setReceiver(NodeNum _, IReceiver* receiver
 
 int TlsTCPCommunication::TlsTcpImpl::sendAsyncMessage(const NodeNum destination,
                                                       const std::shared_ptr<OutgoingMsg>& msg) {
+  LOG_INFO(logger_, KVLOG(destination, msg->msg_size(), msg->payload_size(), msg->is_batched()));
   auto max_size = config_.bufferLength - AsyncTlsConnection::MSG_HEADER_SIZE;
   if (msg->payload_size() > max_size) {
     status_->total_messages_dropped++;
